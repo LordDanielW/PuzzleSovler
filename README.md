@@ -19,10 +19,10 @@
 
 - To solve the puzzles
 
-  `solvePuzzles_StuffMadeHere.py`
-  `solvePuzzles_Tom.py`
-  `solvePuzzles_Nerual_Basic.py`
-  `solvePuzzles_Nerual_Advanced.py`
+      solvePuzzles_StuffMadeHere.py
+      solvePuzzles_Tom.py
+      solvePuzzles_Nerual_Basic.py
+      solvePuzzles_Nerual_Advanced.py
 
 - To check the puzzles
 
@@ -51,10 +51,10 @@ Puzzles/
 
 ## Installation
 
-python -m venv sessionFP
-sessionFP\Scripts\activate
-python.exe -m pip install --upgrade pip
-pip install -r requirements.txt
+      python -m venv sessionFP
+      sessionFP\Scripts\activate
+      python.exe -m pip install --upgrade pip
+      pip install -r requirements.txt
 
 for SVG to PNG only:
 https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
