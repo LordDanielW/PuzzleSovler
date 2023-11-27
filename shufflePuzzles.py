@@ -93,7 +93,18 @@ def create_puzzle_pieces(img):
                 "angle": angle,
             }
         )
-    return pieces, piecesInfo
+
+    # Shuffle the puzzlePiecesInfo array
+    random.shuffle(piecesInfo)
+    puzzlePiecesShuffled = [None] * len(pieces)
+    # Shuffle the puzzle pieces based on the shuffled information
+    for i, info in enumerate(piecesInfo):
+        originalIndex = info["index"]  # The original index of the puzzle piece
+        puzzlePiecesShuffled[i] = pieces[originalIndex]
+
+    return puzzlePiecesShuffled, piecesInfo
+
+    # return pieces, piecesInfo
 
     #
     #   Apply the rotation to singlePiece
@@ -113,16 +124,6 @@ def create_puzzle_pieces(img):
     #     puzzlePiecesInfo.append([i, world_x, world_y, 0])
     #     # puzzlePieces.append(rotatedPiece)
     #     puzzlePieces.append(singlePiece)
-
-    # return puzzlePieces, puzzlePiecesInfo
-
-    # # Shuffle the puzzlePiecesInfo array
-    # random.shuffle(puzzlePiecesInfo)
-    # puzzlePiecesShuffled = [None] * len(puzzlePieces)
-    # # Shuffle the puzzle pieces based on the shuffled information
-    # for i, info in enumerate(puzzlePiecesInfo):
-    #     originalIndex = info[0]  # The original index of the puzzle piece
-    #     puzzlePiecesShuffled[i] = puzzlePieces[originalIndex]
 
     # return puzzlePieces, puzzlePiecesInfo
 

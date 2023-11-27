@@ -56,9 +56,15 @@ def solve_puzzle(puzzle_name):
         shuffledPath, puzzle_name, "puzzle_pieces_info.csv"
     )
     pieceInfo = read_puzzle_pieces_info(puzzle_pieces_info_file)
-
     pieces = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
-    sortedPuzzlePieces = [None] * len(pieces)
+
+    # Unshuffle  #  Turns out this is uneeded, as piece and piece info are still matched
+    # pieces = [None] * len(shuffledPieces)
+    # pieceInfo = [None] * len(shuffledPieceInfo)
+    # for i, info in enumerate(shuffledPieceInfo):
+    #     originalIndex = info["index"]  # The original index of the puzzle piece
+    #     pieces[originalIndex] = shuffledPieces[i]
+    #     pieceInfo[originalIndex] = info
 
     # Create an empty image large enough to place all pieces
     # Assuming the dimensions based on the world coordinates
@@ -73,6 +79,7 @@ def solve_puzzle(puzzle_name):
         (solve_height, solve_width), dtype=np.uint8
     )  # Adjust the size as needed
 
+    #
     for i, piece in enumerate(pieces):
         y, x, angle = (
             pieceInfo[i]["top_y"],
@@ -89,39 +96,10 @@ def solve_puzzle(puzzle_name):
         # Use the mask to only copy the white pixels onto the solvedPuzzle
         solvedPuzzle[y : y + h, x : x + w][mask] = rotated_piece[mask]
 
-        # cv2.imshow("Puzzle", solvedPuzzle)
-        # cv2.waitKey(0)
     # Save the solved puzzle
     print(f"Saving solved puzzle... {puzzle_name}_solved.png")
     cv2.imwrite(os.path.join(solvedPath, f"{puzzle_name}_solved.png"), solvedPuzzle)
     return solvedPuzzle
-
-    # for info, piece in zip(puzzlePiecesInfo, puzzlePieces):
-    #     i, world_x, world_y, angle = info
-    #     rotated_piece = apply_opposite_rotation(piece, angle)
-
-    #     # Place the piece onto the Puzzle image at its world coordinates
-    #     h, w = rotated_piece.shape
-    #     Puzzle_h, Puzzle_w = Puzzle.shape
-
-    #     # Ensure the piece fits within the Puzzle boundaries
-    #     end_x = min(world_x + w, Puzzle_w)
-    #     end_y = min(world_y + h, Puzzle_h)
-
-    #     # Adjust the size of the rotated piece if it goes beyond the Puzzle boundaries
-    #     adjusted_piece = rotated_piece[: end_y - world_y, : end_x - world_x]
-
-    #     # Place the adjusted piece onto the Puzzle image
-    #     Puzzle[world_y:end_y, world_x:end_x] = adjusted_piece
-
-    #     # Store the piece in sortedPuzzlePieces according to its original index
-    #     sortedPuzzlePieces[i] = adjusted_piece
-
-    # # Save the solved puzzle
-    # print(f"Saving solved puzzle... {puzzle_name}_solved.png")
-    # cv2.imwrite(os.path.join(solvedPath, f"{puzzle_name}_solved.png"), Puzzle)
-
-    # return sortedPuzzlePieces
 
 
 # Example usage
