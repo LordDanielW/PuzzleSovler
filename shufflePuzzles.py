@@ -28,22 +28,23 @@ def read_image(file_path):
     return img
 
 
-def process_image(img):
+def find_contours(img):
     inverted = 255 - img
-    if debugVisuals:
-        cv2.imshow("Inverted", inverted)
+    # if debugVisuals:
+    #     cv2.imshow("Inverted", inverted)
+
     _, thresh = cv2.threshold(inverted, 25, 255, cv2.THRESH_BINARY)
-    if debugVisuals:
-        cv2.imshow("Thresholded", thresh)
+    # if debugVisuals:
+    #     cv2.imshow("Thresholded", thresh)
+
     contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-    return contours
 
-
-def filter_contours(contours):
+    # Filter out contours that are too large or too small relative to the average size
     aveSize = sum([len(c) for c in contours]) / len(contours)
     contoursFinal = [
         c for c in contours if len(c) < aveSize * 2 and len(c) > aveSize / 4
     ]
+
     return contoursFinal
 
 
@@ -134,74 +135,75 @@ def rotate_image(image, angle):
     return cropped_image
 
 
-def create_puzzle_pieces(contoursFinal):
-    puzzlePieces = []
-    puzzlePiecesShuffled = []
-    puzzlePiecesInfo = []
-    padding = 5
+def create_puzzle_pieces(img):
+    pieces = []
+    piecesShuffled = []
+    piecesInfo = []
+
+    # This finds the puzzle pieces based on contours
+    contoursFinal = find_contours(img)
 
     for i, contour in enumerate(contoursFinal):
-        #
-        # Cut out singlePiece from the original image
-
+        # Calculate the bounding rectangle for each contour
         x, y, w, h = cv2.boundingRect(contour)
-        contour = contour - [x - padding, y - padding]
-        singlePiece = np.zeros((h + 2 * padding, w + 2 * padding, 3), dtype=np.uint8)
-        cv2.drawContours(
-            singlePiece, [contour], -1, (255, 255, 255), thickness=cv2.FILLED
+        # Create blank BGR image
+        piece = np.zeros((h, w, 3), dtype=np.uint8)
+        # Draw contour on piece
+        contour = contour - [x, y]
+        cv2.drawContours(piece, [contour], -1, (255, 255, 255), thickness=cv2.FILLED)
+        # Convert to grayscale
+        piece = cv2.cvtColor(piece, cv2.COLOR_BGR2GRAY)
+        # Convert to binary
+        _, piece = cv2.threshold(piece, 125, 255, cv2.THRESH_BINARY)
+
+        pieces.append(piece)
+
+        # Store the position and size information in piece_info
+        piecesInfo.append(
+            {
+                "index": i,
+                "top_y": y,
+                "left_x": x,
+            }
         )
-        singlePiece = cv2.cvtColor(singlePiece, cv2.COLOR_BGR2GRAY)
-        _, singlePiece = cv2.threshold(singlePiece, 125, 255, cv2.THRESH_BINARY)
+    return pieces, piecesInfo
 
-        #
-        # Calc Center of Mass for the singlePiece
+    #
+    #   Apply the rotation to singlePiece
 
-        M = cv2.moments(singlePiece)
-        cx = int(M["m10"] / M["m00"])
-        cy = int(M["m01"] / M["m00"])
+    # Easy rotation
+    # angle = random.choice(
+    #     [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
+    # )  # select a random angle from 0, 90, 180, 270
+    # rotatedPiece = rotate_image_easy(singlePiece, angle)
 
-        # Adjust the centroid coordinates to map to the original image coordinates
-        world_x = cx + x - padding
-        world_y = cy + y - padding
+    # Hard rotation
+    # angle = random.randint(0, 359)  # select a random angle between 0 and 359
+    # rotatedPiece = rotate_image(singlePiece, angle)
 
-        if debugVisuals:
-            cv2.imshow(f"Piece {i}", singlePiece)
-            cv2.waitKey(0)
-            print(f"World coordinates of the center of mass: ({world_x}, {world_y})")
+    # if debugVisuals:
+    #     cv2.imshow(f"Piece {i}", rotatedPiece)
+    #     cv2.waitKey(0)
+    #     print(f"Angle of rotation: {angle}")
 
-        #
-        #   Apply the rotation to singlePiece
+    #
+    #   Add the piece info to the puzzlePiecesInfo array
 
-        # Easy rotation
-        angle = random.choice(
-            [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
-        )  # select a random angle from 0, 90, 180, 270
-        rotatedPiece = rotate_image_easy(singlePiece, angle)
+    #     puzzlePiecesInfo.append([i, world_x, world_y, 0])
+    #     # puzzlePieces.append(rotatedPiece)
+    #     puzzlePieces.append(singlePiece)
 
-        # Hard rotation
-        # angle = random.randint(0, 359)  # select a random angle between 0 and 359
-        # rotatedPiece = rotate_image(singlePiece, angle)
+    # return puzzlePieces, puzzlePiecesInfo
 
-        if debugVisuals:
-            cv2.imshow(f"Piece {i}", rotatedPiece)
-            cv2.waitKey(0)
-            print(f"Angle of rotation: {angle}")
+    # # Shuffle the puzzlePiecesInfo array
+    # random.shuffle(puzzlePiecesInfo)
+    # puzzlePiecesShuffled = [None] * len(puzzlePieces)
+    # # Shuffle the puzzle pieces based on the shuffled information
+    # for i, info in enumerate(puzzlePiecesInfo):
+    #     originalIndex = info[0]  # The original index of the puzzle piece
+    #     puzzlePiecesShuffled[i] = puzzlePieces[originalIndex]
 
-        #
-        #   Add the piece info to the puzzlePiecesInfo array
-
-        puzzlePiecesInfo.append([i, world_x, world_y, angle])
-        puzzlePieces.append(rotatedPiece)
-
-    # Shuffle the puzzlePiecesInfo array
-    random.shuffle(puzzlePiecesInfo)
-    puzzlePiecesShuffled = [None] * len(puzzlePieces)
-    # Shuffle the puzzle pieces based on the shuffled information
-    for i, info in enumerate(puzzlePiecesInfo):
-        originalIndex = info[0]  # The original index of the puzzle piece
-        puzzlePiecesShuffled[i] = puzzlePieces[originalIndex]
-
-    return puzzlePieces, puzzlePiecesInfo
+    # return puzzlePieces, puzzlePiecesInfo
 
 
 def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name):
@@ -212,9 +214,13 @@ def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name):
     csv_filename = os.path.join(current_shuffled_path, "puzzle_pieces_info.csv")
     with open(csv_filename, "w", newline="") as csvfile:
         csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(["Piece Number", "World X", "World Y", "Rotation"])  # Header
-        for piece_info in puzzlePiecesInfo:
-            csvwriter.writerow(piece_info)
+        csvwriter.writerow(
+            ["Piece Number", "Top Y", "Left X"]
+        )  # , "Rotation"])  # Header
+        for pI in puzzlePiecesInfo:
+            csvwriter.writerow(
+                [pI["index"], pI["top_y"], pI["left_x"]]
+            )  # , pI["angle"]]
 
     # Save each puzzle piece as an image
     for i, piece in enumerate(puzzlePieces):
@@ -223,28 +229,24 @@ def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name):
         cv2.imwrite(piece_path, piece)
 
 
-def handle_puzzle(file_path):
-    # Reading and processing the image
-    img = read_image(file_path)
-    if img is None:
-        return  # If the image was not read properly, skip this iteration
-
-    contours = process_image(img)
-    contoursFinal = filter_contours(contours)
-
-    # Creating and saving puzzle pieces
-    puzzlePieces, puzzlePiecesInfo = create_puzzle_pieces(contoursFinal)
-    puzzle_name = os.path.splitext(os.path.basename(file_path))[0]
-    save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name)
-
-
 def main():
     ensure_directory_exists(shuffledPath)
 
     # Loop through all the puzzles in the original folder
     for file_path in glob.glob(os.path.join(originalPath, "*.png")):
-        handle_puzzle(file_path)
+        # Read in a puzzle
+        img = read_image(file_path)
+        if img is None:
+            return  # If the image was not read properly, skip this iteration
 
+        # Generate puzzle pieces
+        puzzlePieces, puzzlePiecesInfo = create_puzzle_pieces(img)
+
+        # Save puzzle pieces
+        puzzle_name = os.path.splitext(os.path.basename(file_path))[0]
+        save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name)
+
+    # Wait
     if debugVisuals:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
