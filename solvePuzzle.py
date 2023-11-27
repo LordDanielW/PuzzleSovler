@@ -4,6 +4,8 @@ import numpy as np
 import os
 import glob
 
+from utils import find_bounding_box, rotate_image_easy, rotate_image
+
 # Paths
 shuffledPath = "Puzzles/Shuffled/"
 solvedPath = "Puzzles/Solved/"
@@ -12,16 +14,14 @@ solvedPath = "Puzzles/Solved/"
 def read_puzzle_pieces_info(csv_file):
     puzzlePiecesInfo = []
     with open(csv_file, "r") as file:
-        csvreader = csv.reader(file)
-        next(csvreader)  # Skip the header
+        csvreader = csv.DictReader(file)
         for row in csvreader:
-            puzzlePiecesInfo.append(
-                {
-                    "index": int(row[0]),
-                    "top_y": int(row[1]),
-                    "left_x": int(row[2]),
-                }
-            )
+            # Convert all values to integers if needed
+            info = {
+                key: int(value) if value.isdigit() else value
+                for key, value in row.items()
+            }
+            puzzlePiecesInfo.append(info)
     return puzzlePiecesInfo
 
 
@@ -42,11 +42,11 @@ def load_puzzle_pieces(puzzle_folder):
 
 def apply_opposite_rotation(image, angle):
     if angle == cv2.ROTATE_90_CLOCKWISE:
-        return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        return rotate_image_easy(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
     elif angle == cv2.ROTATE_180:
-        return cv2.rotate(image, cv2.ROTATE_180)
+        return rotate_image_easy(image, cv2.ROTATE_180)
     elif angle == cv2.ROTATE_90_COUNTERCLOCKWISE:
-        return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+        return rotate_image_easy(image, cv2.ROTATE_90_CLOCKWISE)
     else:
         return image  # No rotation needed
 
@@ -74,14 +74,20 @@ def solve_puzzle(puzzle_name):
     )  # Adjust the size as needed
 
     for i, piece in enumerate(pieces):
-        y, x = pieceInfo[i]["top_y"], pieceInfo[i]["left_x"]
-        h, w = piece.shape
+        y, x, angle = (
+            pieceInfo[i]["top_y"],
+            pieceInfo[i]["left_x"],
+            pieceInfo[i]["angle"],
+        )
+
+        rotated_piece = apply_opposite_rotation(piece, angle)
+
+        h, w = rotated_piece.shape
 
         # Create a mask where white pixels are 255 (or true) and others are 0 (or false)
-        mask = piece == 255
-
+        mask = rotated_piece == 255
         # Use the mask to only copy the white pixels onto the solvedPuzzle
-        solvedPuzzle[y : y + h, x : x + w][mask] = piece[mask]
+        solvedPuzzle[y : y + h, x : x + w][mask] = rotated_piece[mask]
 
         # cv2.imshow("Puzzle", solvedPuzzle)
         # cv2.waitKey(0)
