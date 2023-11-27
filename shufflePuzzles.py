@@ -149,8 +149,13 @@ def create_puzzle_pieces(img):
         # Create blank BGR image
         piece = np.zeros((h, w, 3), dtype=np.uint8)
         # Draw contour on piece
-        contour = contour - [x, y]
-        cv2.drawContours(piece, [contour], -1, (255, 255, 255), thickness=cv2.FILLED)
+        contour_offset = contour - [x, y]
+        # Draw filled contour in white
+        cv2.drawContours(
+            piece, [contour_offset], -1, (255, 255, 255), thickness=cv2.FILLED
+        )
+        # Draw contour outline in black
+        cv2.drawContours(piece, [contour_offset], -1, (0, 0, 0), thickness=1)
         # Convert to grayscale
         piece = cv2.cvtColor(piece, cv2.COLOR_BGR2GRAY)
         # Convert to binary
