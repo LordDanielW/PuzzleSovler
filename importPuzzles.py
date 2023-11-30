@@ -9,17 +9,19 @@ from selenium.webdriver.support import expected_conditions as EC
 driver = webdriver.Chrome()
 
 # Number of puzzles to download
-num_puzzles = 5
+num_puzzles = 10
 
 # Define the minimum and maximum values for each input field
+
+
 ranges = {
     "_seed": (1, 1000),
-    "_tabsize": (1, 10),
-    "_jitter": (1, 10),
-    "xn": (1, 10),
-    "yn": (1, 10),
-    "width": (100, 1000),  # Assuming the width is in pixels or similar units
-    "height": (100, 1000),  # Assuming the height is in pixels or similar units
+    "_tabsize": (15, 20),
+    "_jitter": (0, 7),
+    "xn": (5, 10),
+    "yn": (5, 10),
+    "width": (100, 500),  # Assuming the width is in pixels or similar units
+    "height": (100, 500),  # Assuming the height is in pixels or similar units
 }
 
 for i in range(num_puzzles):

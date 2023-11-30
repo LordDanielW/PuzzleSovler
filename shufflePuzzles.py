@@ -41,13 +41,13 @@ def find_contours(img):
 
     contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
-    # Filter out contours that are too large or too small relative to the average size
-    aveSize = sum([len(c) for c in contours]) / len(contours)
-    contoursFinal = [
-        c for c in contours if len(c) < aveSize * 2 and len(c) > aveSize / 4
-    ]
+    # Sort contours by size (number of points in contour) in ascending order
+    contours_sorted = sorted(contours, key=lambda x: len(x), reverse=False)
 
-    return contoursFinal
+    # Remove the largest contour (the background)
+    contours_sorted.pop()
+
+    return contours_sorted
 
 
 def create_puzzle_pieces(img):
@@ -82,6 +82,10 @@ def create_puzzle_pieces(img):
         )  # select a random angle from 0, 90, 180, 270
         rotatedPiece = rotate_image_easy(piece, angle)
 
+        # Hard rotation
+        # angle = random.randint(0, 359)  # select a random angle between 0 and 359
+        # rotatedPiece = rotate_image(piece, angle)
+
         pieces.append(rotatedPiece)
 
         # Store the position and size information in piece_info
@@ -103,29 +107,6 @@ def create_puzzle_pieces(img):
         puzzlePiecesShuffled[i] = pieces[originalIndex]
 
     return puzzlePiecesShuffled, piecesInfo
-
-    # return pieces, piecesInfo
-
-    #
-    #   Apply the rotation to singlePiece
-
-    # Hard rotation
-    # angle = random.randint(0, 359)  # select a random angle between 0 and 359
-    # rotatedPiece = rotate_image(singlePiece, angle)
-
-    # if debugVisuals:
-    #     cv2.imshow(f"Piece {i}", rotatedPiece)
-    #     cv2.waitKey(0)
-    #     print(f"Angle of rotation: {angle}")
-
-    #
-    #   Add the piece info to the puzzlePiecesInfo array
-
-    #     puzzlePiecesInfo.append([i, world_x, world_y, 0])
-    #     # puzzlePieces.append(rotatedPiece)
-    #     puzzlePieces.append(singlePiece)
-
-    # return puzzlePieces, puzzlePiecesInfo
 
 
 def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name):
@@ -169,6 +150,8 @@ def main():
         # Save puzzle pieces
         puzzle_name = os.path.splitext(os.path.basename(file_path))[0]
         save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name)
+
+        print(f"Shuffled {puzzle_name}")
 
     # Wait
     if debugVisuals:

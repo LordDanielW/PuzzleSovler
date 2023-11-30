@@ -4,40 +4,17 @@ import numpy as np
 import os
 import glob
 
-from utils import find_bounding_box, rotate_image_easy, rotate_image
+from utils import (
+    find_bounding_box,
+    rotate_image_easy,
+    rotate_image,
+    read_puzzle_pieces_info,
+    load_puzzle_pieces,
+)
 
 # Paths
 shuffledPath = "Puzzles/Shuffled/"
 solvedPath = "Puzzles/Solved/"
-
-
-def read_puzzle_pieces_info(csv_file):
-    puzzlePiecesInfo = []
-    with open(csv_file, "r") as file:
-        csvreader = csv.DictReader(file)
-        for row in csvreader:
-            # Convert all values to integers if needed
-            info = {
-                key: int(value) if value.isdigit() else value
-                for key, value in row.items()
-            }
-            puzzlePiecesInfo.append(info)
-    return puzzlePiecesInfo
-
-
-def load_puzzle_pieces(puzzle_folder):
-    puzzlePieces = []
-    i = 0
-    while True:
-        filepath = os.path.join(puzzle_folder, f"piece_{i}.png")
-        if os.path.exists(filepath):
-            img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
-            if img is not None:
-                puzzlePieces.append(img)
-            i += 1
-        else:
-            break
-    return puzzlePieces
 
 
 def apply_opposite_rotation(image, angle):
@@ -102,6 +79,13 @@ def solve_puzzle(puzzle_name):
     return solvedPuzzle
 
 
-# Example usage
-puzzle_name = "jigsaw"  # replace with actual puzzle name
-sorted_pieces = solve_puzzle(puzzle_name)
+# # Example usage
+# puzzle_name = "jigsaw2"  # replace with actual puzzle name
+# sorted_pieces = solve_puzzle(puzzle_name)
+# Loop through each puzzle directory in shuffledPath
+for puzzle_folder in os.listdir(shuffledPath):
+    puzzle_folder_path = os.path.join(shuffledPath, puzzle_folder)
+    # Check if it's a directory
+    if os.path.isdir(puzzle_folder_path):
+        print(f"Solving puzzle: {puzzle_folder}")
+        sorted_pieces = solve_puzzle(puzzle_folder)

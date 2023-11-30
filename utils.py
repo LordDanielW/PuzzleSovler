@@ -1,5 +1,7 @@
 import cv2
+import csv
 import numpy as np
+import os
 
 
 def find_bounding_box(image):
@@ -83,3 +85,32 @@ def rotate_image(image, angle):
     cropped_image = rotated_image[box[0][1] : box[1][1], box[0][0] : box[1][0]]
 
     return cropped_image
+
+
+def read_puzzle_pieces_info(csv_file):
+    puzzlePiecesInfo = []
+    with open(csv_file, "r") as file:
+        csvreader = csv.DictReader(file)
+        for row in csvreader:
+            # Convert all values to integers if needed
+            info = {
+                key: int(value) if value.isdigit() else value
+                for key, value in row.items()
+            }
+            puzzlePiecesInfo.append(info)
+    return puzzlePiecesInfo
+
+
+def load_puzzle_pieces(puzzle_folder):
+    puzzlePieces = []
+    i = 0
+    while True:
+        filepath = os.path.join(puzzle_folder, f"piece_{i}.png")
+        if os.path.exists(filepath):
+            img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
+            if img is not None:
+                puzzlePieces.append(img)
+            i += 1
+        else:
+            break
+    return puzzlePieces

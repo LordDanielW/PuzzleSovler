@@ -65,8 +65,14 @@ def svg_to_png(input_directory, output_directory):
                 mask = cv2.cvtColor(a, cv2.COLOR_GRAY2BGR) / 255.0
                 img = (img * mask + background * (1 - mask)).astype(np.uint8)
 
-            # Save the PNG image without the alpha channel
-            cv2.imwrite(png_file_path, img)
+            # Add 1px black border
+            bordered_img = np.zeros(
+                (img.shape[0] + 2, img.shape[1] + 2, 3), dtype=np.uint8
+            )
+            bordered_img[1:-1, 1:-1] = img
+
+            # Save the image
+            cv2.imwrite(png_file_path, bordered_img)
 
             # Remove the temporary PNG file
             os.remove(png_temp_path)
