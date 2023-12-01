@@ -60,14 +60,10 @@ for SVG to PNG only:
 https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
 
 ### added to requirements.txt (for pip install -r requirements.txt)
-
-pip install cairosvg
-
-pip install selenium
-
+pip install cairosvg  
+pip install selenium  
 pip install numpy
+pip install opencv-python  
+pip install scipy  
 
-pip install opencv-python
-
-pip install scipy
 
