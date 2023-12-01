@@ -55,7 +55,7 @@ def draw_gradient_contours(img, contour):
 
     cv2.imshow("Colored Contours", resized_img)
     # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    # cv2.destroyAllWindows()Heyu
 
 
 def find_contour(img, debugVisuals=False):
@@ -102,13 +102,13 @@ def plot_histogram(angle_differences):
     plt.grid(True)
 
     # Reduce the number of x-axis labels
-    plt.xticks(range(0, num_pts, max(1, num_pts // 20)))
+    plt.xticks(range(0, num_pts, 10))
 
     # Set the y-axis limit to 180 degrees
     plt.ylim(min_angle, max_angle)
-    plt.yticks(range(min_angle, max_angle, max(1, max_angle // 20)))
+    plt.yticks(range(min_angle, max_angle, 10))
 
-    plt.show()
+    # plt.show()
 
 
 def calculate_angle(vec1, vec2):
@@ -145,16 +145,17 @@ def create_angle_histogram(sample_points, piece):
         angle_diff = calculate_angle(vec1, vec2)
         angle_differences.append(angle_diff)
 
-    # print("Sum of Angle Difference: ", sum(angle_differences))
-    # print("Sample Points: ", len(sample_points))
-    # print("Angle Differences: ", len(angle_differences))
-
     # Apply Gausian Blur (filter)
-    angle_differences = gaussian_filter(angle_differences, 0.50)
+    angle_differences = gaussian_filter(angle_differences, 1.0)
 
     # Plot the Integral
     # Compute the cumulative sum which acts as an integral of the angle differences
     integral_of_angles = np.cumsum(angle_differences)
+
+    # # print("Sum of Angle Difference: ", sum(angle_differences))
+    # # print("Sample Points: ", len(sample_points))
+    # print("Angle Differences: ", angle_differences)
+    # print("integral_of_angles: ", integral_of_angles)
 
     # Create the plot
     plt.figure(figsize=(10, 5))
@@ -165,11 +166,98 @@ def create_angle_histogram(sample_points, piece):
     plt.grid(True)
     # plt.show()
 
-    draw_gradient_contours(piece, sample_points)
+    # draw_gradient_contours(piece, sample_points)
     # Create the plot
-    plot_histogram(angle_differences)
+    # plot_histogram(angle_differences)
+
+    plt.show()
 
     return angle_differences
+
+
+def find_key_points(angle_differences, peak_threshold):
+    # Identify all local maxima and minima
+    key_points = []
+    for i in range(1, len(angle_differences) - 1):
+        if (
+            angle_differences[i - 1] < angle_differences[i] > angle_differences[i + 1]
+            and angle_differences[i] > peak_threshold
+        ):
+            key_points.append((i, "max"))
+        elif (
+            angle_differences[i - 1] > angle_differences[i] < angle_differences[i + 1]
+            and angle_differences[i] < -peak_threshold
+        ):
+            key_points.append((i, "min"))
+    return key_points
+
+
+def find_flat_side(angle_differences, peak_threshold=10, min_flat_length=5):
+    flat_sides = []
+
+    key_points = find_key_points(angle_differences, peak_threshold)
+
+    # Find consecutive maxima without a minima in between
+    i = 0
+    while i < (len(key_points) - 1):
+        if key_points[i][1] == "max":
+            # Look ahead to find the next max without a min in between
+            for j in range(i + 1, len(key_points)):
+                if key_points[j][1] == "min":
+                    break
+                if key_points[j][1] == "max":
+                    # Found two consecutive maxima, now check for flatness between them
+                    start_max = key_points[i][0]
+                    end_max = key_points[j][0]
+                    flat_length = 0
+                    start = None
+                    for k in range(start_max, end_max + 1):
+                        if abs(angle_differences[k]) <= peak_threshold:
+                            if start is None:
+                                start = k
+                            flat_length += 1
+                        else:
+                            # If we encounter a non-flat angle, check if we just passed a flat edge
+                            if flat_length >= min_flat_length:
+                                # end = k - 1
+                                flat_sides.append((start_max, end_max))
+                                break  # Stop checking since this is no longer a flat edge
+                            start = None
+                            flat_length = 0
+                    i = j  # Move the index to the next maxima
+                    break
+        i += 1
+
+    print("Flat Sides:", len(flat_sides))
+    return flat_sides
+
+
+def draw_flat_sides_on_piece(piece, sample_points, flat_sides):
+    # Copy the image to draw on
+    piece_with_flats = piece.copy()
+
+    # Convert grayscale to BGR if necessary
+    if len(piece_with_flats.shape) == 2 or piece_with_flats.shape[2] == 1:
+        piece_with_flats = cv2.cvtColor(piece_with_flats, cv2.COLOR_GRAY2BGR)
+
+    # Iterate over the flat sides and draw them on the image
+    for start_idx, end_idx in flat_sides:
+        for i in range(start_idx, end_idx + 1):
+            # Draw the segment of the flat side
+            start_point = tuple(sample_points[i][0])
+            end_point = tuple(sample_points[(i + 1) % len(sample_points)][0])
+            cv2.line(piece_with_flats, start_point, end_point, (0, 255, 0), 2)
+
+    # Resize for display, preserving aspect ratio
+    scaling_factor = 4
+    new_width = piece_with_flats.shape[1] * scaling_factor
+    new_height = piece_with_flats.shape[0] * scaling_factor
+    resized_img = cv2.resize(piece_with_flats, (new_width, new_height))
+
+    # Display the image with the drawn flat sides
+    cv2.imshow("Piece with Flat Sides", resized_img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
 
 def main():
@@ -177,11 +265,16 @@ def main():
     pieces = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
     for i, piece in enumerate(pieces):
+        print("Piece: ", i)
         # Find the contours of the puzzle piece
         contour = find_contour(piece)
         # Resample the contour by taking every '4' points
         sample_points = contour[::4]
         angle_histogram = create_angle_histogram(sample_points, piece)
+
+        # flat_sides = find_flat_side(angle_histogram)
+        # # Draw the flat sides over the puzzle piece
+        # draw_flat_sides_on_piece(piece, sample_points, flat_sides)
 
 
 # Runs only if called as main file
