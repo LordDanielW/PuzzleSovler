@@ -65,3 +65,5 @@ pip install cairosvg
 pip install selenium
 pip install numpy
 pip install opencv-python
+pip install scipy
+
