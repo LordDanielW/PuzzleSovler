@@ -62,8 +62,12 @@ https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releas
 ### added to requirements.txt (for pip install -r requirements.txt)
 
 pip install cairosvg
+
 pip install selenium
+
 pip install numpy
+
 pip install opencv-python
+
 pip install scipy
 
