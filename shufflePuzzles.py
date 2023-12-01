@@ -29,7 +29,6 @@ def read_image(file_path):
 
     return img
 
-
 def find_contours(img):
     inverted = 255 - img
     # if debugVisuals:
@@ -48,7 +47,6 @@ def find_contours(img):
     contours_sorted.pop()
 
     return contours_sorted
-
 
 def create_puzzle_pieces(img):
     pieces = []

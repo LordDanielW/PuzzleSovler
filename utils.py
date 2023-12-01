@@ -114,3 +114,4 @@ def load_puzzle_pieces(puzzle_folder):
         else:
             break
     return puzzlePieces
+
