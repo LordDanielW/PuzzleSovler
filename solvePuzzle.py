@@ -81,8 +81,8 @@ def solve_puzzle(puzzle_name, info_filename="puzzle_pieces_info.csv", save_name=
 
 
 def main():
-    # loop = True
-    loop = False
+    loop = True
+    # loop = False
 
     if loop:
         # Loop through each puzzle directory in shuffledPath
