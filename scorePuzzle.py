@@ -90,11 +90,6 @@ def score_puzzle(
                 rotate_piece(piece, img_height) for piece in metric_pieces
             ]
 
-        # # Apply rotation to metric pieces only for 90, 180, and 270 degrees
-        # rotated_metric_pieces = [
-        #     rotate_piece(piece, img_width, img_height) if rotation > 0 else piece for piece in metric_pieces
-        # ]
-
         for rotated_metric, solution in zip(rotated_metric_pieces, solution_pieces):
             total_score += calculate_score(rotated_metric, solution)
 
