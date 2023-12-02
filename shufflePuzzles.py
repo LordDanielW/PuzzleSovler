@@ -29,6 +29,7 @@ def read_image(file_path):
 
     return img
 
+
 def find_contours(img):
     inverted = 255 - img
     # if debugVisuals:
@@ -48,10 +49,11 @@ def find_contours(img):
 
     return contours_sorted
 
+
 def create_puzzle_pieces(img):
     pieces = []
-    piecesShuffled = []
     piecesInfo = []
+    puzzle_meta_data = []
 
     # This finds the puzzle pieces based on contours
     contoursFinal = find_contours(img)
@@ -74,11 +76,21 @@ def create_puzzle_pieces(img):
         # Convert to binary
         _, piece = cv2.threshold(piece, 125, 255, cv2.THRESH_BINARY)
 
+        # A mapping from cv2 rotation constants to degrees
+        rotation_to_angle = {
+            cv2.ROTATE_90_CLOCKWISE: 90,
+            cv2.ROTATE_180: 180,
+            cv2.ROTATE_90_COUNTERCLOCKWISE: 270,
+        }
+
         # Easy rotation
-        angle = random.choice(
-            [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
-        )  # select a random angle from 0, 90, 180, 270
-        rotatedPiece = rotate_image_easy(piece, angle)
+        cv2_rotation_constant = random.choice(
+            list(rotation_to_angle.keys())
+        )  # select a random rotation constant
+        angle_in_degrees = rotation_to_angle[
+            cv2_rotation_constant
+        ]  # convert the constant to degrees
+        rotatedPiece = rotate_image_easy(piece, cv2_rotation_constant)
 
         # Hard rotation
         # angle = random.randint(0, 359)  # select a random angle between 0 and 359
@@ -92,7 +104,9 @@ def create_puzzle_pieces(img):
                 "index": i,
                 "top_y": y,
                 "left_x": x,
-                "angle": angle,
+                "bottom_y": y + h - 1,  # Subtract 1 because pixel indices start at 0
+                "right_x": x + w - 1,  # Subtract 1 because pixel indices start at 0
+                "angle": angle_in_degrees,
             }
         )
 
@@ -104,10 +118,23 @@ def create_puzzle_pieces(img):
         originalIndex = info["index"]  # The original index of the puzzle piece
         puzzlePiecesShuffled[i] = pieces[originalIndex]
 
-    return puzzlePiecesShuffled, piecesInfo
+        # Add Piece Name here after shuffling
+        info["piece_name"] = f"piece_{i}.png"
+
+    # Generate Meta Data
+    img_height, img_width = img.shape[:2]
+    puzzle_meta_data.append(
+        {
+            "num_pieces": len(pieces),
+            "img_height": img_height,
+            "img_width": img_width,
+        }
+    )
+
+    return puzzlePiecesShuffled, piecesInfo, puzzle_meta_data
 
 
-def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name):
+def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_meta_data, puzzle_name):
     current_shuffled_path = os.path.join(shuffledPath, puzzle_name)
     ensure_directory_exists(current_shuffled_path)
 
@@ -123,6 +150,20 @@ def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name):
 
             # Write the rows based on the dictionary values
             for pI in puzzlePiecesInfo:
+                csvwriter.writerow(pI)
+
+    # Write puzzle_meta_data to a CSV file
+    csv_filename = os.path.join(current_shuffled_path, "puzzle_meta_data.csv")
+    with open(csv_filename, "w", newline="") as csvfile:
+        # Check if there's at least one piece of info to write
+        if puzzle_meta_data:
+            # Use the keys of the first dictionary as the header
+            header = puzzle_meta_data[0].keys()
+            csvwriter = csv.DictWriter(csvfile, fieldnames=header)
+            csvwriter.writeheader()  # Write the header
+
+            # Write the rows based on the dictionary values
+            for pI in puzzle_meta_data:
                 csvwriter.writerow(pI)
 
     # Save each puzzle piece as an image
@@ -143,11 +184,13 @@ def main():
             return  # If the image was not read properly, skip this iteration
 
         # Generate puzzle pieces
-        puzzlePieces, puzzlePiecesInfo = create_puzzle_pieces(img)
+        puzzlePieces, puzzlePiecesInfo, puzzle_meta_data = create_puzzle_pieces(img)
 
         # Save puzzle pieces
         puzzle_name = os.path.splitext(os.path.basename(file_path))[0]
-        save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name)
+        save_puzzle_pieces(
+            puzzlePieces, puzzlePiecesInfo, puzzle_meta_data, puzzle_name
+        )
 
         print(f"Shuffled {puzzle_name}")
 

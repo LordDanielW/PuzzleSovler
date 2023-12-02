@@ -103,6 +103,7 @@ def read_puzzle_pieces_info(csv_file):
 
 def load_puzzle_pieces(puzzle_folder):
     puzzlePieces = []
+    pieceInfo = []
     i = 0
     while True:
         filepath = os.path.join(puzzle_folder, f"piece_{i}.png")
@@ -110,8 +111,8 @@ def load_puzzle_pieces(puzzle_folder):
             img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
             if img is not None:
                 puzzlePieces.append(img)
+                pieceInfo.append({"piece_name": f"piece_{i}"})
             i += 1
         else:
             break
-    return puzzlePieces
-
+    return puzzlePieces, pieceInfo

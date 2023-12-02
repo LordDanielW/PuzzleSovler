@@ -18,22 +18,21 @@ solvedPath = "Puzzles/Solved/"
 
 
 def apply_opposite_rotation(image, angle):
-    if angle == cv2.ROTATE_90_CLOCKWISE:
+    if angle == 90:
         return rotate_image_easy(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    elif angle == cv2.ROTATE_180:
+    elif angle == 180:
         return rotate_image_easy(image, cv2.ROTATE_180)
-    elif angle == cv2.ROTATE_90_COUNTERCLOCKWISE:
+    elif angle == 270:
         return rotate_image_easy(image, cv2.ROTATE_90_CLOCKWISE)
     else:
         return image  # No rotation needed
 
 
-def solve_puzzle(puzzle_name):
-    puzzle_pieces_info_file = os.path.join(
-        shuffledPath, puzzle_name, "puzzle_pieces_info.csv"
-    )
+def solve_puzzle(puzzle_name, info_filename="puzzle_pieces_info.csv", save_name=""):
+    puzzle_pieces_info_file = os.path.join(shuffledPath, puzzle_name, info_filename)
+
     pieceInfo = read_puzzle_pieces_info(puzzle_pieces_info_file)
-    pieces = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
+    pieces, _ = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
     # Unshuffle  #  Turns out this is uneeded, as piece and piece info are still matched
     # pieces = [None] * len(shuffledPieces)
@@ -74,18 +73,34 @@ def solve_puzzle(puzzle_name):
         solvedPuzzle[y : y + h, x : x + w][mask] = rotated_piece[mask]
 
     # Save the solved puzzle
-    print(f"Saving solved puzzle... {puzzle_name}_solved.png")
-    cv2.imwrite(os.path.join(solvedPath, f"{puzzle_name}_solved.png"), solvedPuzzle)
+    print(f"Saving solved puzzle... {puzzle_name}_solved{save_name}.png")
+    cv2.imwrite(
+        os.path.join(solvedPath, f"{puzzle_name}_solved{save_name}.png"), solvedPuzzle
+    )
     return solvedPuzzle
 
 
-# # Example usage
-# puzzle_name = "jigsaw2"  # replace with actual puzzle name
-# sorted_pieces = solve_puzzle(puzzle_name)
-# Loop through each puzzle directory in shuffledPath
-for puzzle_folder in os.listdir(shuffledPath):
-    puzzle_folder_path = os.path.join(shuffledPath, puzzle_folder)
-    # Check if it's a directory
-    if os.path.isdir(puzzle_folder_path):
-        print(f"Solving puzzle: {puzzle_folder}")
-        sorted_pieces = solve_puzzle(puzzle_folder)
+def main():
+    # loop = True
+    loop = False
+
+    if loop:
+        # Loop through each puzzle directory in shuffledPath
+        for puzzle_folder in os.listdir(shuffledPath):
+            puzzle_folder_path = os.path.join(shuffledPath, puzzle_folder)
+            # Check if it's a directory
+            if os.path.isdir(puzzle_folder_path):
+                print(f"Solving puzzle: {puzzle_folder}")
+                sorted_pieces = solve_puzzle(puzzle_folder)
+    else:
+        # Example usage
+        puzzle_name = "jigsaw1"  # replace with actual puzzle name
+
+        for rot_num in ["0", "90", "180", "270"]:
+            info_filename = f"Rotation_{rot_num}.csv"
+            save_name = f"_Rot_{rot_num}"
+            sorted_pieces = solve_puzzle(puzzle_name, info_filename, save_name)
+
+
+if __name__ == "__main__":
+    main()

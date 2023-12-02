@@ -109,7 +109,7 @@ def find_edges(dirVecList, pieceInfo):
 
 
 def solve_puzzle(puzzle_name):
-    pieces = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
+    pieces, pieceInfo = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
     # TODO
 
