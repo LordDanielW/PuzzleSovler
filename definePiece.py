@@ -15,11 +15,9 @@ from utils import (
     rotate_image,
     read_puzzle_pieces_info,
     load_puzzle_pieces,
-    draw_gradient_contours,
-    plot_histogram,
-    generate_spaced_colors,
-    draw_segmented_contours,
-)
+    )
+
+from drawUtils import draw_gradient_contours, plot_histogram, draw_segmented_contours2
 
 from puzzleClass import PieceInfo, PuzzleInfo, SideInfo
 
