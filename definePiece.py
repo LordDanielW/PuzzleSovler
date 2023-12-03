@@ -312,12 +312,12 @@ def segmentSides(
     else:
         thisPiece.isCorner = False
 
-    (
-        thisPiece.top_y,
-        thisPiece.left_x,
-        thisPiece.bottom_y,
-        thisPiece.right_x,
-    ) = find_bounding_box(contour)
+    # (
+    #     thisPiece.top_y,
+    #     thisPiece.left_x,
+    #     thisPiece.bottom_y,
+    #     thisPiece.right_x,
+    # ) = find_bounding_box(contour)
 
     return thisPiece
 
