@@ -12,6 +12,8 @@ from utils import (
     load_puzzle_pieces,
 )
 
+from puzzleClass import PieceInfo, PuzzleInfo, SideInfo, SideMatch
+
 from definePiece import segmentSides
 
 # Paths
@@ -31,23 +33,28 @@ def distance_squared_average(array1, array2):
     return avg_squared_distance
 
 
-def findBestMatches(histogram, histograms_to_compare, pieces_index):
+def findBestMatches(histogram, pieces_to_compare, pieces_index):
+    pieces_to_compare: [PieceInfo]
     reversed_histogram = histogram[::-1]
-    distance_squared_dict = {}  # Initialize an empty dictionary
+    all_side_matches = []
 
-    for i, piece_histograms in enumerate(histograms_to_compare):
-        for j, side_histo in enumerate(piece_histograms):
-            if side_histo != "Flat_Edge":
-                dis_sqrd = distance_squared_average(reversed_histogram, side_histo)
-                # Store the distance squared in the dictionary with the key as a tuple
-                # print(dis_sqrd)
-                distance_squared_dict[(pieces_index + i, j)] = dis_sqrd
+    for piece in pieces_to_compare:
+        piece: PieceInfo
+        for side in piece.sides:
+            side: SideInfo
+            if side.isEdge == False:
+                dis_sqrd = distance_squared_average(reversed_histogram, side.Histogram)
+                side_match = SideMatch()
+                side_match.piece_index = pieces_index
+                side_match.side_index = side.side_Index
+                side_match.histogram_score = dis_sqrd
+                side.side_matches.append(side_match)
 
-    sorted_distance_squared_dict = dict(
-        sorted(distance_squared_dict.items(), key=lambda item: item[1])[:5]
-    )
-    print(sorted_distance_squared_dict)
-    return sorted_distance_squared_dict
+    sorted_side_matches = sorted(
+        all_side_matches, key=lambda match: match.histogram_score
+    )[:5]
+
+    return sorted_side_matches
 
 
 def write_histogram_scores_to_csv(piecesInfo, filename):
@@ -67,34 +74,32 @@ def write_histogram_scores_to_csv(piecesInfo, filename):
 # def findBestPuzzle():
 
 
-def solve_puzzle(puzzle_name):
-    pieces, piecesInfo = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
-    histograms_to_compare = []
-    averaged_tolerance = 1
+def solve_puzzle(puzzle_name, averaged_tolerance=9):
+    raw_pieces, piecesInfo = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
-    for i, piece in enumerate(pieces):
-        side_histograms = segmentSides(piece, False, 4, 3)
+    puzzle = PuzzleInfo()
+    pieces_to_compare: [PieceInfo] = []
 
-        # Flag Flat Edges to avoid compare, while still keeping consistent spacing
-        for j, histo in enumerate(side_histograms):
-            if np.all(histo == 0) or np.mean(histo) < averaged_tolerance:
-                side_histograms[j] = "Flat_Edge"
-
-        piecesInfo[i]["side_histograms"] = side_histograms
+    for i, raw_piece in enumerate(raw_pieces):
+        piece: PieceInfo = segmentSides(raw_piece, False, 4, 3)
+        piece.piece_Index = i
+        piece.piece_name = piecesInfo[i]["piece_name"]
+        puzzle.pieces.append(piece)
         if i > 0:
-            histograms_to_compare.append(side_histograms)
+            pieces_to_compare.append(piece)
 
-    for i, pInfo in enumerate(piecesInfo[:-1]):
-        for ii, histogram in enumerate(pInfo["side_histograms"]):
-            if histogram != "Flat_Edge":
-                # piecesInfo[i][ii]["histogram_score"] = findBestMatches(
-                #     histogram, histograms_to_compare, i
-                # )
-                findBestMatches(histogram, histograms_to_compare, i)
+    for i, tPiece in enumerate(puzzle.pieces[:-1]):
+        tPiece: PieceInfo
+        for ii, tSide in enumerate(tPiece.sides):
+            tSide: SideInfo
+            if tSide.isEdge == False:
+                tSide.side_Matches = findBestMatches(
+                    tSide.Histogram, pieces_to_compare, i
+                )
 
-        histograms_to_compare.pop(0)
+        pieces_to_compare.pop(0)
 
-    # write_histogram_scores_to_csv(piecesInfo, "histogram_scores.csv")
+    #  write_histogram_scores_to_csv(piecesInfo, "histogram_scores.csv")
 
     # # Save the solved puzzle
     # print(f"Saving solved puzzle... {puzzle_name}_solved.png")
