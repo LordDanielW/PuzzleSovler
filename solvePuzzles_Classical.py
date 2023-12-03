@@ -2,6 +2,7 @@ import cv2
 import csv
 import numpy as np
 import os
+import matplotlib.pyplot as plt
 import glob
 
 from utils import (
@@ -10,6 +11,11 @@ from utils import (
     rotate_image,
     read_puzzle_pieces_info,
     load_puzzle_pieces,
+    draw_gradient_contours,
+    plot_histogram,
+    generate_spaced_colors,
+    draw_segmented_contours,
+    draw_segmented_contours2,
 )
 
 from puzzleClass import PieceInfo, PuzzleInfo, SideInfo, SideMatch, PuzzleSolve
@@ -44,25 +50,46 @@ def distance_squared_average(array1, array2, shift_range=3):
     return min_distance, best_shift
 
 
-def findBestMatches(histogram, pieces_to_compare, pieces_index):
+def findBestMatches(current_piece, side_Index, pieces_to_compare):
+    current_piece: PieceInfo
     pieces_to_compare: [PieceInfo]
-    reversed_histogram = histogram[::-1]
+    side = current_piece.sides[side_Index]
+    reversed_histogram = np.array(side.Histogram)[::-1]
+    inv_rev_hist = np.array(reversed_histogram) * -1
     all_side_matches = []
+
+    best_dis_sqrd = 1000000000
+    best_match = None
+    best_piece = None
+    best_side = None
 
     for piece in pieces_to_compare:
         piece: PieceInfo
         for side in piece.sides:
             side: SideInfo
             if side.isEdge == False:
-                dis_sqrd, shift = distance_squared_average(
-                    reversed_histogram, side.Histogram
-                )
+                dis_sqrd, shift = distance_squared_average(inv_rev_hist, side.Histogram)
                 side_match = SideMatch()
-                side_match.piece_index = pieces_index
+                side_match.piece_index = piece.piece_Index
                 side_match.side_index = side.side_Index
                 side_match.histogram_score = dis_sqrd
                 side_match.histogram_shift = shift
                 side.side_matches.append(side_match)
+                if dis_sqrd < best_dis_sqrd:
+                    best_dis_sqrd = dis_sqrd
+                    best_match = side.Histogram
+                    best_piece = piece
+                    best_side = side
+
+    # if best_piece:
+    #     plot_all(
+    #         inv_rev_hist,
+    #         best_match,
+    #         current_piece.puzzle_piece,
+    #         side.Points,
+    #         best_piece.puzzle_piece,
+    #         best_side.Points,
+    #     )
 
     sorted_side_matches = sorted(
         all_side_matches, key=lambda match: match.histogram_score
@@ -71,12 +98,34 @@ def findBestMatches(histogram, pieces_to_compare, pieces_index):
     return sorted_side_matches
 
 
+def plot_all(
+    reversed_histogram,
+    best_match_histogram,
+    current_puzzle_piece,
+    current_points,
+    best_puzzle_piece,
+    best_points,
+):
+    draw_segmented_contours2(current_puzzle_piece, current_points, "current_piece")
+    draw_segmented_contours2(best_puzzle_piece, best_points, "best_piece")
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(reversed_histogram, label="Reversed Histogram")
+    plt.plot(best_match_histogram, label="Best Match Histogram")
+    plt.title("Histogram Comparison")
+    plt.xlabel("Index")
+    plt.ylabel("Value")
+    plt.legend()
+    plt.show()
+
+
 # Function to find the best match for a given side
 def find_best_match_for_side(side, pieces):
     for side_match in side.side_matches:
         for piece in pieces:
             if piece.piece_Index == side_match.piece_index:
                 return piece, side_match
+    return None, None
 
 
 def findBestPuzzle(puzzleSolve, piece, pieces_left):
@@ -84,10 +133,12 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
     piece: PieceInfo
     pieces_left: [PieceInfo]
 
+    returnSolved = []
+
     if not pieces_left:
         return puzzleSolve
 
-    y_piece_index, x_piece_index = puzzleSolve.find_piece(piece.piece_Index)
+    y_piece_index, x_piece_index = puzzleSolve.find_piece(piece)
 
     # Place piece for side 2 (bottom)
     if not piece.sides[2].isEdge:
@@ -104,13 +155,16 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
 
             # Add the piece to the puzzle matrix and update the score
             new_y_piece_index = y_piece_index + 1
-            puzzleSolve.puzzle_matrix[
-                new_y_piece_index, x_piece_index
-            ] = best_match_piece
+            puzzleSolve.add_piece(new_y_piece_index, x_piece_index, best_match_piece)
             puzzleSolve.puzzle_score += best_match.histogram_score
 
             # Recursive call with the next piece
-            findBestPuzzle(puzzleSolve, best_match_piece, y_pieces_left)
+
+            new_puzzle_solve = findBestPuzzle(
+                puzzleSolve, best_match_piece, y_pieces_left
+            )
+            if new_puzzle_solve:
+                returnSolved.append(new_puzzle_solve)
 
     # Place piece for side 1 (right)
     if not piece.sides[1].isEdge:
@@ -126,15 +180,23 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
 
             # Add the piece to the puzzle matrix and update the score
             new_x_piece_index = x_piece_index + 1
-            puzzleSolve.puzzle_matrix[
-                y_piece_index, new_x_piece_index
-            ] = best_match_piece
+            puzzleSolve.add_piece(y_piece_index, new_x_piece_index, best_match_piece)
             puzzleSolve.puzzle_score += best_match.histogram_score
 
             # Recursive call with the next piece
-            findBestPuzzle(puzzleSolve, best_match_piece, pieces_left)
 
-    return puzzleSolve
+            new_puzzle_solve = findBestPuzzle(
+                puzzleSolve, best_match_piece, pieces_left
+            )
+            if new_puzzle_solve:
+                returnSolved.append(new_puzzle_solve)
+
+    if returnSolved:
+        # Return the PuzzleSolve instance with the smallest puzzle_score
+        return min(returnSolved, key=lambda ps: ps.puzzle_score)
+    else:
+        # Return None if no further solutions were found
+        return None
 
 
 # def findBestBorder(start_piece, corner_pieces, edge_pieces):
@@ -163,7 +225,7 @@ def solve_puzzle(puzzle_name):
             tSide: SideInfo
             if tSide.isEdge == False:
                 tSide.side_matches = findBestMatches(
-                    tSide.Histogram, pieces_to_compare, tPiece.piece_Index
+                    tPiece, tSide.side_Index, pieces_to_compare
                 )
 
         pieces_to_compare.pop(0)
@@ -185,12 +247,13 @@ def solve_puzzle(puzzle_name):
     counter = 0
     while not (first_piece.sides[3].isEdge and first_piece.sides[0].isEdge):
         if counter == 4:
+            print("Broken Corner")
             break
         first_piece.rotate_sides()
         counter += 1
-    puzzleSolve.pieces.append(0, 0, first_piece)
+    puzzleSolve.add_piece(0, 0, first_piece)
     puzzle_pieces_left = puzzle.pieces
-    bestSolve = findBestPuzzle(first_piece, puzzleSolve, puzzle_pieces_left.copy())
+    bestSolve = findBestPuzzle(puzzleSolve, first_piece, puzzle_pieces_left.copy())
 
     write_placement_to_csv(bestSolve, "puzzle_placement.csv")
     # # Save the solved puzzle
@@ -204,8 +267,8 @@ def write_placement_to_csv(puzzleSolve, filename):
         writer = csv.writer(file)
         writer.writerow(["y_piece_index", "x_piece_index", "piece_index"])
 
-        for placement in puzzleSolve.placement_details:
-            writer.writerow(placement)
+        for (y, x), piece in puzzleSolve.pieces.items():
+            writer.writerow([y, x, piece.piece_Index])
 
 
 # Example usage

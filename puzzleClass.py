@@ -9,6 +9,7 @@ class SideInfo:
     def __init__(self):
         self.side_Index = 0
         self.Histogram = []
+        self.Points = []        
         self.isEdge = False
         self.start_corner_index = 0
         self.end_corner_index = 0
@@ -52,20 +53,30 @@ class PuzzleInfo:
         self.width = 0
         self.height = 0
 
+class PieceSolve:
+    x_piece_index = 0
+    y_piece_index = 0
+    piece = PieceInfo()
+
 class PuzzleSolve:
     def __init__(self):
+        self.pieces = {}  # Dictionary to hold pieces with keys as [y, x]
+        self.puzzle_score = 0  # Initialize puzzle score
 
-        rows = 100  # Number of rows
-        cols = 100  # Number of columns
-        self.puzzle_matrix = [[None for _ in range(cols)] for _ in range(rows)]
-        # self.puzzle_matrix = [,,] # y_piece_index, x_piece_index, piece
-        self.puzzle_score = 0
+    def add_piece(self, y, x, piece):
+        """Add a piece to the puzzle at coordinates [y, x]."""
+        if not isinstance(piece, PieceInfo):
+            raise ValueError("piece must be an instance of PieceInfo class")
+        self.pieces[(y, x)] = piece
 
-    def find_piece(self, piece_index):
-        for y_piece_index, y_piece in enumerate(self.puzzle_matrix):
-            for x_piece_index, piece in enumerate(y_piece):
-                if piece.piece_Index == piece_index:
-                    return y_piece_index, x_piece_index
-        return -1, -1
+    def find_piece(self, search_piece):
+        """Find and return the coordinates of a piece that matches the search_piece's piece_index."""
+        for (y, x), piece in self.pieces.items():           
+            if piece.piece_Index == search_piece.piece_Index:
+                return (y, x)
+        return None  # Return None if no matching piece is found
 
-    
+    def update_score(self, score):
+        """Update the puzzle score."""
+        self.puzzle_score = score
+
