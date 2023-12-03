@@ -3,6 +3,8 @@ import csv
 import numpy as np
 import os
 
+from scipy import ndimage
+
 
 def find_bounding_box(image):
     # For grayscale image, we don't compare against a 3-channel color.

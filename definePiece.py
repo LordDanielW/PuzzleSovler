@@ -15,9 +15,14 @@ from utils import (
     rotate_image,
     read_puzzle_pieces_info,
     load_puzzle_pieces,
-    )
+)
 
-from drawUtils import draw_gradient_contours, plot_histogram, draw_segmented_contours2
+from drawUtils import (
+    draw_gradient_contours,
+    plot_histogram,
+    draw_segmented_contours,
+    draw_segmented_contours2,
+)
 
 from puzzleClass import PieceInfo, PuzzleInfo, SideInfo
 
@@ -28,6 +33,8 @@ solvedPath = "Puzzles/Solved/"
 
 
 def find_contour(img, debugVisuals=False):
+    cv2.imshow("img", img)
+    cv2.waitKey(0)
     inverted = 255 - img
     if debugVisuals:
         cv2.imshow("Inverted", inverted)
@@ -61,7 +68,7 @@ def calculate_angle(vec1, vec2):
 def segmentSides(
     piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=4
 ):
-    contour = find_contour(piece, False)
+    contour = find_contour(piece, True)
     sample_points = contour[::downSampleFactor]
 
     angle_differences = []
@@ -575,8 +582,8 @@ def draw_flat_sides_on_piece(piece, sample_points, flat_sides):
 
 
 def main():
-    puzzle_name = "jigsaw6"
-    pieces = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
+    puzzle_name = "jigsaw1"
+    pieces, _ = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
     for i, piece in enumerate(pieces):
         segmentSides(piece, True, 4, 3)
