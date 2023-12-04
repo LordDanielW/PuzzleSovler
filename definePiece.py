@@ -142,22 +142,13 @@ def segmentSides(
         indexLow = finalCornerIndicies[i]
         indexHigh = finalCornerIndicies[(i + 1) % 4]
 
-        currentIndex = indexLow + cornerTrim
+        # currentIndex = indexLow + cornerTrim
+        currentIndex = (indexLow + cornerTrim) % len(angle_differences)
         isolatedEdge = []
         isolatedEdgePoints = []  # this is just for debugging currently
         while (currentIndex + cornerTrim - 1) % len(angle_differences) != indexHigh:
-            print(f"While {(currentIndex + cornerTrim - 1) % len(angle_differences)}")
-            print(f"IndexHigh {indexHigh}")
-            print(f"angle_differences {len(angle_differences)}")
-            print(f"Current Index: {currentIndex}")
-            isolatedEdge.append(
-                # angle_differences[currentIndex]
-                angle_differences[currentIndex % len(angle_differences)]
-            )
-            isolatedEdgePoints.append(
-                # sample_points[currentIndex]
-                sample_points[currentIndex % len(angle_differences)]
-            )
+            isolatedEdge.append(angle_differences[currentIndex])
+            isolatedEdgePoints.append(sample_points[currentIndex])
             currentIndex = (currentIndex + 1) % len(angle_differences)
         edgeHistograms.append(isolatedEdge)
         edgePoints.append(isolatedEdgePoints)
@@ -414,7 +405,7 @@ def main():
     pieces, _ = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
     for piece in pieces:
-        segmentSides(piece, False, 4, 3)
+        segmentSides(piece, True, 4, 3)
 
 
 # Runs only if called as main file
