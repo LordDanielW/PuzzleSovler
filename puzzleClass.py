@@ -5,11 +5,12 @@ class SideMatch:
         self.histogram_score = 0
         self.histogram_shift = 0
 
+
 class SideInfo:
     def __init__(self):
         self.side_Index = 0
         self.Histogram = []
-        self.Points = []        
+        self.Points = []
         self.isEdge = False
         self.start_corner_index = 0
         self.end_corner_index = 0
@@ -53,13 +54,26 @@ class PuzzleInfo:
         self.width = 0
         self.height = 0
 
-class PieceSolve:
-    x_piece_index = 0
-    y_piece_index = 0
-    piece = PieceInfo()
+
+class MetaData:
+    def __init__(self, _seed, _tabsize, _jitter, xn, yn, width, height):
+        self._seed = _seed
+        self._tabsize = _tabsize
+        self._jitter = _jitter
+        self.xn = xn
+        self.yn = yn
+        self.width = width
+        self.height = height
+
+    def __str__(self):
+        return f"MetaData(_seed={self._seed}, _tabsize={self._tabsize}, _jitter={self._jitter}, xn={self.xn}, yn={self.yn}, width={self.width}, height={self.height})"
+
 
 class PuzzleSolve:
-    def __init__(self):
+    def __init__(self, metadata):
+        if not isinstance(metadata, MetaData):
+            raise ValueError("metadata must be an instance of MetaData class")
+        self.metadata = metadata
         self.pieces = {}  # Dictionary to hold pieces with keys as [y, x]
         self.puzzle_score = 0  # Initialize puzzle score
 
@@ -71,7 +85,7 @@ class PuzzleSolve:
 
     def find_piece(self, search_piece):
         """Find and return the coordinates of a piece that matches the search_piece's piece_index."""
-        for (y, x), piece in self.pieces.items():           
+        for (y, x), piece in self.pieces.items():
             if piece.piece_Index == search_piece.piece_Index:
                 return (y, x)
         return None  # Return None if no matching piece is found
@@ -79,4 +93,3 @@ class PuzzleSolve:
     def update_score(self, score):
         """Update the puzzle score."""
         self.puzzle_score = score
-

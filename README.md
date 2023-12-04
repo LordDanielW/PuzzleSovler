@@ -19,19 +19,12 @@
 
 - To solve the puzzles
 
-      solvePuzzles_StuffMadeHere.py
-      solvePuzzles_Tom.py
-      solvePuzzles_Nerual_Basic.py
-      solvePuzzles_Nerual_Advanced.py
+      solvePuzzles.py
+      solvePuzzles_Classical.py
 
-- To check the puzzles
+- To score the puzzles
 
-  `checkPuzzles.py`
-
-- To train the neural network
-
-  `train_Nerual_Basic.py`
-  `train_Nerual_Advanced.py`
+  `scorePuzzle.py`
 
 ## Puzzle Folder Hierarchy
 
@@ -40,14 +33,10 @@ Puzzles/
 - SVG/
 - Original/
 - Shuffled/
+  - jigSaw1/
+  - jigSaw2/
+  - etc.
 - Solved/
-  - StuffMadeHere/
-  - Tom/
-  - Basic/
-  - Advanced/
-- Training/
-  - Basic/
-  - Advanced/
 
 ## Installation
 
@@ -60,11 +49,10 @@ for SVG to PNG only:
 https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
 
 ### added to requirements.txt (for pip install -r requirements.txt)
+
 pip install cairosvg  
 pip install selenium  
 pip install numpy  
 pip install opencv-python  
 pip install scipy  
-pip install matplotlib  
-
-
+pip install matplotlib

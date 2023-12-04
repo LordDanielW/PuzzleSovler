@@ -74,23 +74,23 @@ def findBestMatches(current_piece, side_Index, pieces_to_compare):
 
     sorted_side_matches = sorted(
         all_side_matches, key=lambda match: match.histogram_score
-    )  # [:5]
+    )[:5]
 
-    # # Plot for each of the top 5 matches
-    # for match in sorted_side_matches:
-    #     matched_piece = next(
-    #         (p for p in pieces_to_compare if p.piece_Index == match.piece_index), None
-    #     )
-    #     matched_side = matched_piece.sides[match.side_index] if matched_piece else None
-    #     if matched_side:
-    #         plot_all(
-    #             inv_rev_hist,
-    #             matched_side.Histogram,
-    #             current_piece.puzzle_piece,
-    #             current_side.Points,
-    #             matched_piece.puzzle_piece,
-    #             matched_side.Points,
-    #         )
+    # Plot for each of the top 5 matches
+    for match in sorted_side_matches:
+        matched_piece = next(
+            (p for p in pieces_to_compare if p.piece_Index == match.piece_index), None
+        )
+        matched_side = matched_piece.sides[match.side_index] if matched_piece else None
+        if matched_side:
+            plot_all(
+                inv_rev_hist,
+                matched_side.Histogram,
+                current_piece.puzzle_piece,
+                current_side.Points,
+                matched_piece.puzzle_piece,
+                matched_side.Points,
+            )
 
     return sorted_side_matches
 
@@ -116,7 +116,7 @@ def plot_all(
     plt.show()
 
 
-def find_best_match_for_side(side, pieces, max_matches=5):
+def find_best_match_for_side(side, pieces, max_matches=3):
     matches = []
     for side_match in side.side_matches:
         if len(matches) >= max_matches:
@@ -351,44 +351,41 @@ def solve_puzzle(puzzle_name):
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
 
-    puzzleSolve = PuzzleSolve()
-    last_piece = corner_pieces[0]
-    # pieces_left = []
-    pieces_left = puzzle.pieces
-    pieces_left.remove(last_piece)
-    a_solution = findAPuzzle(puzzleSolve, last_piece, pieces_left)
-    space_puzzle(a_solution)
-    generate_solution_CSV(a_solution, "Puzzles\Shuffled\jigsaw1\puzzle_placement.csv")
-    # good_solutions = []
-    # best_solution = None
-    # for corner_piece in corner_pieces:
-    #     puzzleSolve = PuzzleSolve()
+    # puzzleSolve = PuzzleSolve()
+    # last_piece = corner_pieces[0]
+    # # pieces_left = []
+    # pieces_left = puzzle.pieces
+    # pieces_left.remove(last_piece)
+    # a_solution = findAPuzzle(puzzleSolve, last_piece, pieces_left)
+    # space_puzzle(a_solution)
+    # generate_solution_CSV(a_solution, "Puzzles\Shuffled\jigsaw1\puzzle_placement.csv")
+    good_solutions = []
+    best_solution = None
+    for corner_piece in corner_pieces:
+        puzzleSolve = PuzzleSolve()
 
-    #     # Orient the corner piece correctly
-    #     counter = 0
-    #     while not (corner_piece.sides[3].isEdge and corner_piece.sides[0].isEdge):
-    #         if counter == 4:
-    #             print("Broken Corner")
-    #             break
-    #         corner_piece.rotate_sides()
-    #         counter += 1
+        # Orient the corner piece correctly
+        counter = 0
+        while not (corner_piece.sides[3].isEdge and corner_piece.sides[0].isEdge):
+            if counter == 4:
+                print("Broken Corner")
+                break
+            corner_piece.rotate_sides()
+            counter += 1
 
-    #     puzzleSolve.add_piece(0, 0, corner_piece)
-    #     puzzle_pieces_left = edge_pieces.copy()
-    #     puzzle_pieces_left.remove(corner_piece)
-    #     bestSolve = findBestPuzzle(puzzleSolve, corner_piece, puzzle_pieces_left)
+        puzzleSolve.add_piece(0, 0, corner_piece)
+        puzzle_pieces_left = puzzle.pieces
+        puzzle_pieces_left.remove(corner_piece)
+        bestSolve = findBestPuzzle(puzzleSolve, corner_piece, puzzle_pieces_left)
 
-    #     if bestSolve:
-    #         good_solutions.append(bestSolve)
+        if bestSolve:
+            good_solutions.append(bestSolve)
 
-    # # Return the best solution based on the puzzle score
-    # if good_solutions:
-    #     best_solution = min(good_solutions, key=lambda ps: ps.puzzle_score)
+    if good_solutions:
+        best_solution = min(good_solutions, key=lambda ps: ps.puzzle_score)
 
-    # # Save the solved puzzle
-    # print(f"Saving solved puzzle... {puzzle_name}_solved.png")
-    # cv2.imwrite(os.path.join(solvedPath, f"{puzzle_name}_solved.png"), solvedPuzzle)
-    # return solvedPuzzle
+    space_puzzle(best_solution)
+    generate_solution_CSV(best_solution, "Puzzles\Shuffled\jigsaw1\solution.csv")
 
 
 # Example usage

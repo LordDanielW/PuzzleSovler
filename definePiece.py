@@ -21,7 +21,7 @@ from drawUtils import (
     draw_gradient_contours,
     plot_histogram,
     draw_segmented_contours,
-    
+    scale_piece,
 )
 
 from puzzleClass import PieceInfo, PuzzleInfo, SideInfo
@@ -33,20 +33,16 @@ solvedPath = "Puzzles/Solved/"
 
 
 def find_contour(img, debugVisuals=False):
-    if debugVisuals:
-        cv2.imshow("Original", img)
     inverted = 255 - img
-    if debugVisuals:
-        cv2.imshow("Inverted", inverted)
 
     _, thresh = cv2.threshold(inverted, 25, 255, cv2.THRESH_BINARY)
-    if debugVisuals:
-        cv2.imshow("Thresholded", thresh)
-        cv2.waitKey(0)
 
     contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     if debugVisuals and len(contours) > 0:
+        scale_piece(img, "Original", scale_factor=2, wait=False)
+        scale_piece(inverted, "Inverted", scale_factor=2, wait=False)
+        scale_piece(thresh, "Thresholded", scale_factor=2, wait=False)
         draw_gradient_contours(img, contours[0])
 
     return contours[0]
@@ -67,7 +63,7 @@ def calculate_angle(vec1, vec2):
 def segmentSides(
     piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=4
 ):
-    contour = find_contour(piece, False)
+    contour = find_contour(piece, debugVis)
     sample_points = contour[::downSampleFactor]
 
     angle_differences = []
@@ -150,8 +146,18 @@ def segmentSides(
         isolatedEdge = []
         isolatedEdgePoints = []  # this is just for debugging currently
         while (currentIndex + cornerTrim - 1) % len(angle_differences) != indexHigh:
-            isolatedEdge.append(angle_differences[currentIndex])
-            isolatedEdgePoints.append(sample_points[currentIndex])
+            print(f"While {(currentIndex + cornerTrim - 1) % len(angle_differences)}")
+            print(f"IndexHigh {indexHigh}")
+            print(f"angle_differences {len(angle_differences)}")
+            print(f"Current Index: {currentIndex}")
+            isolatedEdge.append(
+                # angle_differences[currentIndex]
+                angle_differences[currentIndex % len(angle_differences)]
+            )
+            isolatedEdgePoints.append(
+                # sample_points[currentIndex]
+                sample_points[currentIndex % len(angle_differences)]
+            )
             currentIndex = (currentIndex + 1) % len(angle_differences)
         edgeHistograms.append(isolatedEdge)
         edgePoints.append(isolatedEdgePoints)
@@ -195,98 +201,6 @@ def segmentSides(
         thisPiece.isCorner = False
 
     return thisPiece
-
-
-def create_angle_histogram(sample_points, piece):
-    angle_differences = []
-    number_of_points = len(sample_points)
-
-    draw_gradient_contours(piece, sample_points, "downsampled contour")
-
-    if number_of_points < 3:
-        print("Not enough points to calculate angles.")
-        return []
-
-    # Calculate the vectors and angles between them
-    for i in range(number_of_points):
-        pt0 = sample_points[i - 1][
-            0
-        ]  # Previous point, wrapping around to the last for the first
-        pt1 = sample_points[i][0]  # Current point
-        pt2 = sample_points[(i + 1) % number_of_points][
-            0
-        ]  # Next point, wrapping around
-
-        vec1 = pt1 - pt0
-        vec2 = pt2 - pt1
-
-        angle_diff = calculate_angle(vec1, vec2)
-        angle_differences.append(angle_diff)
-
-    windowSize = 3
-    minPeakHeight_deg = 10
-
-    # Apply Gausian Blur (filter)
-    # angle_differences = gaussian_filter(angle_differences, 1.0)
-    angle_differences = circular_centered_window_filter(angle_differences, windowSize)
-
-    # find peaks
-    localPeakindicies = find_peaks_circular(
-        angle_differences, windowSize, minPeakHeight_deg, False
-    )
-
-    # peak candidates
-    peakCandidates = [
-        sample_points[i] for i in localPeakindicies if i < len(sample_points)
-    ]
-
-    draw_gradient_contours(piece, peakCandidates, "peak candidates")
-
-    # ordered sets
-    cornerSetCandidates = increasing_combinations(
-        len(peakCandidates) - 1, 4
-    )  # sets of 4 ordered indicies from peakCandidates
-
-    bestScore = -1
-    bestIndex = -1
-    for i, ptIndicies in enumerate(cornerSetCandidates):
-        orderedPoints = [
-            peakCandidates[ii] for ii in ptIndicies if ii < len(peakCandidates)
-        ]
-        score = score_of_shape(orderedPoints, 15)
-        if score != -1 and score > bestScore:
-            bestScore = score
-            bestIndex = i
-
-    finalIndicies = cornerSetCandidates[bestIndex]
-    finalCorners = [peakCandidates[i] for i in finalIndicies if i < len(peakCandidates)]
-
-    draw_gradient_contours(piece, finalCorners, "Final corners")
-
-    # Plot the Integral
-    # Compute the cumulative sum which acts as an integral of the angle differences
-    integral_of_angles = np.cumsum(angle_differences)
-
-    # # print("Sum of Angle Difference: ", sum(angle_differences))
-    # # print("Sample Points: ", len(sample_points))
-    # print("Angle Differences: ", angle_differences)
-    # print("integral_of_angles: ", integral_of_angles)
-
-    # Create the plot
-    plt.figure(figsize=(10, 5))
-    plt.plot(angle_differences, marker="o", linestyle="-")
-    plt.title("Integral of Angle Differences")
-    plt.xlabel("Index")
-    plt.ylabel("Cumulative Angle Difference (degrees)")
-    plt.grid(True)
-    # plt.show()
-
-    # Create the plot
-    # plot_histogram(angle_differences)
-
-    plt.show()
-
-    return angle_differences
 
 
 def simpleHistogram(data, name="Simple Histogram"):
@@ -495,108 +409,12 @@ def shoelace_area(vertices):
     return abs(area) / 2
 
 
-def find_key_points(angle_differences, peak_threshold):
-    # Identify all local maxima and minima
-    key_points = []
-    for i in range(1, len(angle_differences) - 1):
-        if (
-            angle_differences[i - 1] < angle_differences[i] > angle_differences[i + 1]
-            and angle_differences[i] > peak_threshold
-        ):
-            key_points.append((i, "max"))
-        elif (
-            angle_differences[i - 1] > angle_differences[i] < angle_differences[i + 1]
-            and angle_differences[i] < -peak_threshold
-        ):
-            key_points.append((i, "min"))
-    return key_points
-
-
-def find_flat_side(angle_differences, peak_threshold=10, min_flat_length=5):
-    flat_sides = []
-
-    key_points = find_key_points(angle_differences, peak_threshold)
-
-    # Find consecutive maxima without a minima in between
-    i = 0
-    while i < (len(key_points) - 1):
-        if key_points[i][1] == "max":
-            # Look ahead to find the next max without a min in between
-            for j in range(i + 1, len(key_points)):
-                if key_points[j][1] == "min":
-                    break
-                if key_points[j][1] == "max":
-                    # Found two consecutive maxima, now check for flatness between them
-                    start_max = key_points[i][0]
-                    end_max = key_points[j][0]
-                    flat_length = 0
-                    start = None
-                    for k in range(start_max, end_max + 1):
-                        if abs(angle_differences[k]) <= peak_threshold:
-                            if start is None:
-                                start = k
-                            flat_length += 1
-                        else:
-                            # If we encounter a non-flat angle, check if we just passed a flat edge
-                            if flat_length >= min_flat_length:
-                                # end = k - 1
-                                flat_sides.append((start_max, end_max))
-                                break  # Stop checking since this is no longer a flat edge
-                            start = None
-                            flat_length = 0
-                    i = j  # Move the index to the next maxima
-                    break
-        i += 1
-
-    print("Flat Sides:", len(flat_sides))
-    return flat_sides
-
-
-def draw_flat_sides_on_piece(piece, sample_points, flat_sides):
-    # Copy the image to draw on
-    piece_with_flats = piece.copy()
-
-    # Convert grayscale to BGR if necessary
-    if len(piece_with_flats.shape) == 2 or piece_with_flats.shape[2] == 1:
-        piece_with_flats = cv2.cvtColor(piece_with_flats, cv2.COLOR_GRAY2BGR)
-
-    # Iterate over the flat sides and draw them on the image
-    for start_idx, end_idx in flat_sides:
-        for i in range(start_idx, end_idx + 1):
-            # Draw the segment of the flat side
-            start_point = tuple(sample_points[i][0])
-            end_point = tuple(sample_points[(i + 1) % len(sample_points)][0])
-            cv2.line(piece_with_flats, start_point, end_point, (0, 255, 0), 2)
-
-    # Resize for display, preserving aspect ratio
-    scaling_factor = 4
-    new_width = piece_with_flats.shape[1] * scaling_factor
-    new_height = piece_with_flats.shape[0] * scaling_factor
-    resized_img = cv2.resize(piece_with_flats, (new_width, new_height))
-
-    # Display the image with the drawn flat sides
-    cv2.imshow("Piece with Flat Sides", resized_img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
-
 def main():
-    puzzle_name = "jigsaw1"
+    puzzle_name = "jigsaw3"
     pieces, _ = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
-    for i, piece in enumerate(pieces):
-        segmentSides(piece, True, 4, 3)
-
-        # print("Piece: ", i)
-        # # Find the contours of the puzzle piece
-        # contour = find_contour(piece,False)
-        # # Resample the contour by taking every '4' points
-        # sample_points = contour[::4]
-        # angle_histogram = create_angle_histogram(sample_points, piece)
-
-        # flat_sides = find_flat_side(angle_histogram)
-        # # Draw the flat sides over the puzzle piece
-        # draw_flat_sides_on_piece(piece, sample_points, flat_sides)
+    for piece in pieces:
+        segmentSides(piece, False, 4, 3)
 
 
 # Runs only if called as main file

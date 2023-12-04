@@ -32,15 +32,7 @@ def draw_gradient_contours(img, contour, name="Colored Contours"):
 
         cv2.circle(img_color, tuple(point[0]), 2, color, 2)
 
-    # Resize for display, preserving aspect ratio
-    scaling_factor = 2
-    new_width = img_color.shape[1] * scaling_factor
-    new_height = img_color.shape[0] * scaling_factor
-    resized_img = cv2.resize(img_color, (new_width, new_height))
-
-    cv2.imshow(name, resized_img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    scale_piece(img_color, name, 2, wait=False)
 
 
 def plot_histogram(angle_differences):
@@ -120,12 +112,17 @@ def draw_segmented_contours(img, contours, name="Segmented Contours"):
         for point in contour:
             cv2.circle(img_color, tuple(point[0]), 2, colors[i], 2)
 
-    # Resize for display, preserving aspect ratio
-    scaling_factor = 2
-    new_width = img_color.shape[1] * scaling_factor
-    new_height = img_color.shape[0] * scaling_factor
-    resized_img = cv2.resize(img_color, (new_width, new_height))
+    scale_piece(img_color, name, 2, wait=False)
 
+
+def scale_piece(img, name="", scale_factor=4, wait=False):
+    # Resize for display, preserving aspect ratio
+    new_width = img.shape[1] * scale_factor
+    new_height = img.shape[0] * scale_factor
+    resized_img = cv2.resize(img, (new_width, new_height))
+
+    # Display the image with the drawn flat sides
     cv2.imshow(name, resized_img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    if wait:
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()

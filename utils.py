@@ -5,6 +5,8 @@ import os
 
 from scipy import ndimage
 
+from puzzleClass import MetaData
+
 
 def find_bounding_box(image):
     # For grayscale image, we don't compare against a 3-channel color.
@@ -89,6 +91,22 @@ def rotate_image(image, angle):
     return cropped_image
 
 
+def read_metadata(file_path):
+    with open(file_path, mode="r") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            metadata = MetaData(
+                _seed=int(row["_seed"]),
+                _tabsize=int(row["_tabsize"]),
+                _jitter=int(row["_jitter"]),
+                xn=int(row["xn"]),
+                yn=int(row["yn"]),
+                width=int(row["width"]),
+                height=int(row["height"]),
+            )
+            return metadata
+
+
 def read_puzzle_pieces_info(csv_file):
     puzzlePiecesInfo = []
     with open(csv_file, "r") as file:
@@ -113,8 +131,13 @@ def load_puzzle_pieces(puzzle_folder):
             img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
             if img is not None:
                 puzzlePieces.append(img)
-                pieceInfo.append({"piece_name": f"piece_{i}"})
+                pieceInfo.append({"piece_name": f"piece_{i}.png"})
             i += 1
         else:
             break
     return puzzlePieces, pieceInfo
+
+
+def ensure_directory_exists(path):
+    if not os.path.exists(path):
+        os.makedirs(path)

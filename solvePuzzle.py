@@ -81,26 +81,26 @@ def solve_puzzle(puzzle_name, info_filename="puzzle_pieces_info.csv", save_name=
 
 
 def main():
-    solve_puzzle("jigsaw1", "puzzle_placement.csv", "placement")
-    # loop = True
-    # # loop = False
+    # solve_puzzle("jigsaw1", "puzzle_placement.csv", "placement")
+    loop = True
+    # loop = False
 
-    # if loop:
-    #     # Loop through each puzzle directory in shuffledPath
-    #     for puzzle_folder in os.listdir(shuffledPath):
-    #         puzzle_folder_path = os.path.join(shuffledPath, puzzle_folder)
-    #         # Check if it's a directory
-    #         if os.path.isdir(puzzle_folder_path):
-    #             print(f"Solving puzzle: {puzzle_folder}")
-    #             sorted_pieces = solve_puzzle(puzzle_folder)
-    # else:
-    #     # Example usage
-    #     puzzle_name = "jigsaw1"  # replace with actual puzzle name
+    if loop:
+        # Loop through each puzzle directory in shuffledPath
+        for puzzle_folder in os.listdir(shuffledPath):
+            puzzle_folder_path = os.path.join(shuffledPath, puzzle_folder)
+            # Check if it's a directory
+            if os.path.isdir(puzzle_folder_path):
+                print(f"Solving puzzle: {puzzle_folder}")
+                sorted_pieces = solve_puzzle(puzzle_folder)
+    else:
+        # Example usage
+        puzzle_name = "jigsaw1"  # replace with actual puzzle name
 
-    #     for rot_num in ["0", "90", "180", "270"]:
-    #         info_filename = f"Rotation_{rot_num}.csv"
-    #         save_name = f"_Rot_{rot_num}"
-    #         sorted_pieces = solve_puzzle(puzzle_name, info_filename, save_name)
+        for rot_num in ["0", "90", "180", "270"]:
+            info_filename = f"Rotation_{rot_num}.csv"
+            save_name = f"_Rot_{rot_num}"
+            sorted_pieces = solve_puzzle(puzzle_name, info_filename, save_name)
 
 
 if __name__ == "__main__":

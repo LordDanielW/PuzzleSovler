@@ -11,12 +11,8 @@ from utils import (
     rotate_image_easy,
     rotate_image,
     read_puzzle_pieces_info,
+    ensure_directory_exists,
 )
-
-
-def ensure_directory_exists(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
 
 
 def save_rotated_piece_info(puzzlePiecesInfo, save_path):

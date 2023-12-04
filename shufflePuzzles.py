@@ -6,17 +6,17 @@ import random
 import glob
 from scipy import ndimage
 
-from utils import find_bounding_box, rotate_image_easy, rotate_image
+from utils import (
+    find_bounding_box,
+    rotate_image_easy,
+    rotate_image,
+    ensure_directory_exists,
+)
 
 debugVisuals = False
 originalPath = "Puzzles/Original/"
 shuffledPath = "Puzzles/Shuffled/"
 solvedPath = "Puzzles/Solved/"
-
-
-def ensure_directory_exists(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
 
 
 def read_image(file_path):
@@ -53,7 +53,6 @@ def find_contours(img):
 def create_puzzle_pieces(img):
     pieces = []
     piecesInfo = []
-    puzzle_meta_data = []
 
     # This finds the puzzle pieces based on contours
     contoursFinal = find_contours(img)
@@ -121,20 +120,10 @@ def create_puzzle_pieces(img):
         # Add Piece Name here after shuffling
         info["piece_name"] = f"piece_{i}.png"
 
-    # Generate Meta Data
-    img_height, img_width = img.shape[:2]
-    puzzle_meta_data.append(
-        {
-            "num_pieces": len(pieces),
-            "img_height": img_height,
-            "img_width": img_width,
-        }
-    )
-
-    return puzzlePiecesShuffled, piecesInfo, puzzle_meta_data
+    return puzzlePiecesShuffled, piecesInfo
 
 
-def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_meta_data, puzzle_name):
+def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name):
     current_shuffled_path = os.path.join(shuffledPath, puzzle_name)
     ensure_directory_exists(current_shuffled_path)
 
@@ -152,20 +141,6 @@ def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_meta_data, puzzle_
             for pI in puzzlePiecesInfo:
                 csvwriter.writerow(pI)
 
-    # Write puzzle_meta_data to a CSV file
-    csv_filename = os.path.join(current_shuffled_path, "puzzle_meta_data.csv")
-    with open(csv_filename, "w", newline="") as csvfile:
-        # Check if there's at least one piece of info to write
-        if puzzle_meta_data:
-            # Use the keys of the first dictionary as the header
-            header = puzzle_meta_data[0].keys()
-            csvwriter = csv.DictWriter(csvfile, fieldnames=header)
-            csvwriter.writeheader()  # Write the header
-
-            # Write the rows based on the dictionary values
-            for pI in puzzle_meta_data:
-                csvwriter.writerow(pI)
-
     # Save each puzzle piece as an image
     for i, piece in enumerate(puzzlePieces):
         piece_filename = f"piece_{i}.png"  # Saving as .png
@@ -177,20 +152,18 @@ def main():
     ensure_directory_exists(shuffledPath)
 
     # Loop through all the puzzles in the original folder
-    for file_path in glob.glob(os.path.join(originalPath, "*.png")):
+    for i, file_path in enumerate(glob.glob(os.path.join(originalPath, "*.png"))):
         # Read in a puzzle
         img = read_image(file_path)
         if img is None:
             return  # If the image was not read properly, skip this iteration
 
         # Generate puzzle pieces
-        puzzlePieces, puzzlePiecesInfo, puzzle_meta_data = create_puzzle_pieces(img)
+        puzzlePieces, puzzlePiecesInfo = create_puzzle_pieces(img)
 
         # Save puzzle pieces
-        puzzle_name = os.path.splitext(os.path.basename(file_path))[0]
-        save_puzzle_pieces(
-            puzzlePieces, puzzlePiecesInfo, puzzle_meta_data, puzzle_name
-        )
+        puzzle_name = f"jigsaw{i}"
+        save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name)
 
         print(f"Shuffled {puzzle_name}")
 
