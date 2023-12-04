@@ -1,13 +1,9 @@
 import cv2
-import csv
 import numpy as np
 import os
-import glob
-import math
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 from itertools import combinations
-import colorsys
 
 from utilsLoad import (
     load_puzzle_pieces,
@@ -20,7 +16,7 @@ from utilsDraw import (
     scale_piece,
 )
 
-from puzzleClass import PieceInfo, PuzzleInfo, SideInfo
+from classPuzzle import PieceInfo, PuzzleInfo, SideInfo
 
 debugVisuals = False
 originalPath = "Puzzles/Original/"

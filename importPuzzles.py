@@ -10,12 +10,11 @@ from selenium.webdriver.support import expected_conditions as EC
 # Set up the Selenium driver
 driver = webdriver.Chrome()
 
-from utils import (
-    ensure_directory_exists,
-)
+from utilsLoad import ensure_directory_exists, save_metadata
+from classPuzzle import MetaData
 
 # Number of puzzles to download
-num_puzzles = 10
+num_puzzles = 5
 
 # Define the minimum and maximum values for each input field
 ranges = {
@@ -49,16 +48,12 @@ for i in range(num_puzzles):
             element.send_keys(str(value))
             used_values[input_id] = value
 
-        # Write the used values to the CSV file
-        # Create a CSV file and write the header row
-        meta_data_path = f"Puzzles/Shuffled/jigsaw{i}"
-        ensure_directory_exists(meta_data_path)
-        with open(
-            os.path.join(meta_data_path, "puzzle_meta_data.csv"), "w", newline=""
-        ) as file:
-            writer = csv.DictWriter(file, fieldnames=ranges.keys())
-            writer.writeheader()
-            writer.writerow(used_values)
+        # Convert used values to MetaData object and save it
+        metadata = MetaData(**used_values)
+        metadata_path = f"Puzzles/Shuffled/jigsaw{i}/"
+        ensure_directory_exists(metadata_path)
+        metadata_file_path = os.path.join(metadata_path, "puzzle_meta_data.json")
+        save_metadata(metadata, metadata_file_path)
 
         # Find the button for generating the puzzle and click it
         generate_button = driver.find_element(

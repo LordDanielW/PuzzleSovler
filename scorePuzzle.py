@@ -1,17 +1,7 @@
-import cv2
 import csv
-import numpy as np
 import os
-import random
-import glob
-from scipy import ndimage
 
-from utils import (
-    rotate_image_easy,
-    rotate_image,
-    read_puzzle_pieces_info,
-    ensure_directory_exists,
-)
+from utilsLoad import load_puzzle_pieces_info, ensure_directory_exists, load_metadata
 
 
 def save_rotated_piece_info(puzzlePiecesInfo, save_path):
@@ -62,12 +52,13 @@ def score_puzzle(
     puzzle_meta_data_file, metric_file, solution_file, output_file, puzzle_name
 ):
     # Read puzzle meta data and piece information from CSV files
-    puzzle_meta_data = read_puzzle_pieces_info(puzzle_meta_data_file)[0]
-    img_width = puzzle_meta_data["img_width"] + 1
-    img_height = puzzle_meta_data["img_height"] + 1
+    # puzzle_meta_data = load_puzzle_pieces_info(puzzle_meta_data_file)[0]
+    puzzle_meta_data = load_metadata(puzzle_meta_data_file)
+    img_width = puzzle_meta_data.width + 1
+    img_height = puzzle_meta_data.height + 1
 
-    metric_pieces = read_puzzle_pieces_info(metric_file)
-    solution_pieces = read_puzzle_pieces_info(solution_file)
+    metric_pieces = load_puzzle_pieces_info(metric_file)
+    solution_pieces = load_puzzle_pieces_info(solution_file)
 
     best_score = float("inf")
     # Iterate for 4 rotations (0, 90, 180, 270 degrees)
@@ -109,23 +100,27 @@ def score_puzzle(
 
 
 def main():
-    puzzle_name = "jigsaw1"
+    # puzzle_name = "jigsaw1"
 
-    puzzle_meta_data_file_path = (
-        "Puzzles/Shuffled/" + puzzle_name + "/puzzle_meta_data.csv"
-    )
-    metric_file_path = "Puzzles/Shuffled/" + puzzle_name + "/puzzle_pieces_info.csv"
-    solution_file_path = "Puzzles/Solved/puzzle_placement.csv"
-    # solution_file_path = "Puzzles/Shuffled/" + puzzle_name + "/puzzle_pieces_info.csv"
-    score_output_file_path = "Puzzles/Solved/" + puzzle_name + "_grade.csv"
+    for i in range(10):
+        puzzle_name = f"jigsaw{i}"
 
-    score_puzzle(
-        puzzle_meta_data_file_path,
-        metric_file_path,
-        solution_file_path,
-        score_output_file_path,
-        puzzle_name,
-    )
+        puzzle_meta_data_file_path = (
+            f"Puzzles/Shuffled/{puzzle_name}/puzzle_meta_data.json"
+        )
+        metric_file_path = f"Puzzles/Shuffled/{puzzle_name}/puzzle_pieces_info.csv"
+        solution_file_path = f"Puzzles/Solved/{puzzle_name}_solved.csv"  # If this is constant for all puzzles
+        # If the solution file path also varies, you might need to change it as per your requirements
+        score_output_file_path = f"Puzzles/Solved/{puzzle_name}_grade.csv"
+
+        # Call the score_puzzle function with the paths
+        score_puzzle(
+            puzzle_meta_data_file_path,
+            metric_file_path,
+            solution_file_path,
+            score_output_file_path,
+            puzzle_name,
+        )
 
 
 if __name__ == "__main__":

@@ -1,7 +1,10 @@
 import cv2
 import numpy as np
 
+# *** Note: don't inclue utilsLoad for circular dependency ***
+
 from utilsMath import distance_squared_average, rotate_image_easy
+
 
 class SideMatch:
     def __init__(self):
@@ -50,7 +53,9 @@ class PieceInfo:
     def rotate_sides(self):
         self.sides = self.sides[-1:] + self.sides[:-1]
         self.angle = (self.angle + 90) % 360
-        self.puzzle_piece = rotate_image_easy(self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE)
+        self.puzzle_piece = rotate_image_easy(
+            self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
+        )
 
 
 class PuzzleInfo:
@@ -73,6 +78,17 @@ class MetaData:
 
     def __str__(self):
         return f"MetaData(_seed={self._seed}, _tabsize={self._tabsize}, _jitter={self._jitter}, xn={self.xn}, yn={self.yn}, width={self.width}, height={self.height})"
+
+    def to_dict(self):
+        return {
+            "_seed": self._seed,
+            "_tabsize": self._tabsize,
+            "_jitter": self._jitter,
+            "xn": self.xn,
+            "yn": self.yn,
+            "width": self.width,
+            "height": self.height,
+        }
 
 
 class PuzzleSolve:
@@ -133,26 +149,30 @@ class PuzzleSolve:
             if piece.piece_Index == search_piece.piece_Index:
                 return (y, x)
         return None  # Return None if no matching piece is found
-    
+
     def show_puzzle(self):
         """Show the puzzle image."""
         puzzle_image = self.generate_puzzle_image()
         cv2.imshow("Puzzle", puzzle_image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-    
+
     def generate_puzzle_image(self):
         """Generate the puzzle image."""
         error_margin = 10
-        puzzle_image = np.zeros((self.metadata.height + error_margin, self.metadata.width + error_margin), dtype=np.uint8 )
+        puzzle_image = np.zeros(
+            (self.metadata.height + error_margin, self.metadata.width + error_margin),
+            dtype=np.uint8,
+        )
 
         for (y, x), piece in self.pieces.items():
-            piece : PieceInfo
+            piece: PieceInfo
             # Create a mask where white pixels are 255 (or true) and others are 0 (or false)
             add_piece = piece.puzzle_piece
 
             mask = add_piece == 255
             # Use the mask to only copy the white pixels onto the solvedPuzzle
-            puzzle_image[piece.top_y : piece.bottom_y, piece.left_x : piece.right_x][mask] = add_piece[mask]
+            puzzle_image[piece.top_y : piece.bottom_y, piece.left_x : piece.right_x][
+                mask
+            ] = add_piece[mask]
         return puzzle_image
-

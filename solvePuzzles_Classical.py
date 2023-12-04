@@ -7,7 +7,7 @@ import glob
 
 from utilsMath import distance_squared_average
 
-from utilsLoad import read_puzzle_pieces_info, load_puzzle_pieces, read_metadata
+from utilsLoad import load_puzzle_pieces, load_metadata
 from utilsDraw import (
     draw_gradient_contours,
     plot_histogram,
@@ -15,7 +15,7 @@ from utilsDraw import (
     scale_piece,
 )
 from utilsMath import distance_squared_average
-from puzzleClass import PieceInfo, PuzzleInfo, SideInfo, SideMatch, PuzzleSolve
+from classPuzzle import PieceInfo, PuzzleInfo, SideInfo, SideMatch, PuzzleSolve
 from definePiece import segmentSides
 
 # Paths
@@ -267,28 +267,28 @@ def generate_solution_CSV(puzzleSolve, filename):
 
 def solve_puzzle(puzzle_name):
     raw_pieces, piecesInfo = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
-    meta_data = read_metadata(
-        os.path.join(shuffledPath, puzzle_name, "puzzle_meta_data.csv")
+    meta_data = load_metadata(
+        os.path.join(shuffledPath, puzzle_name, "puzzle_meta_data.json")
     )
 
     puzzle = PuzzleInfo()
     pieces_to_compare: [PieceInfo] = []
 
     for i, raw_piece in enumerate(raw_pieces):
-        piece: PieceInfo = segmentSides(raw_piece, False, 4, 3)
+        piece: PieceInfo = segmentSides(raw_piece, i == 0, 4, 3)
         piece.piece_Index = i
         piece.piece_name = piecesInfo[i]["piece_name"]
         puzzle.pieces.append(piece)
         if i > 0:
             pieces_to_compare.append(piece)
 
-    for tPiece in puzzle.pieces[:-1]:
+    for i, tPiece in enumerate(puzzle.pieces[:-1]):
         tPiece: PieceInfo
         for tSide in tPiece.sides:
             tSide: SideInfo
             if tSide.isEdge == False:
                 tSide.side_matches = findBestMatches(
-                    tPiece, tSide.side_Index, pieces_to_compare
+                    tPiece, tSide.side_Index, pieces_to_compare, i == 0
                 )
 
         pieces_to_compare.pop(0)

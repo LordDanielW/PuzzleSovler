@@ -6,10 +6,19 @@ import random
 import glob
 from scipy import ndimage
 
-from utils import (
+from classPuzzle import MetaData
+
+from utilsMath import (
     rotate_image_easy,
     rotate_image,
+)
+
+from utilsLoad import (
+    load_puzzle_pieces_info,
+    load_puzzle_pieces,
     ensure_directory_exists,
+    load_metadata,
+    save_metadata,
 )
 
 debugVisuals = False
@@ -49,7 +58,7 @@ def find_contours(img):
     return contours_sorted
 
 
-def create_puzzle_pieces(img):
+def create_puzzle_pieces(img, meta_data):
     pieces = []
     piecesInfo = []
 
@@ -119,7 +128,14 @@ def create_puzzle_pieces(img):
         # Add Piece Name here after shuffling
         info["piece_name"] = f"piece_{i}.png"
 
-    return puzzlePiecesShuffled, piecesInfo
+    # Generate Meta Data
+    img_height, img_width = img.shape[:2]
+
+    meta_data: MetaData
+    meta_data.width = img_width
+    meta_data.height = img_height
+
+    return puzzlePiecesShuffled, piecesInfo, meta_data
 
 
 def save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name):
@@ -157,12 +173,20 @@ def main():
         if img is None:
             return  # If the image was not read properly, skip this iteration
 
+        # Read Puzzle Meta Data
+        meta_data = load_metadata(
+            os.path.join(shuffledPath, f"jigsaw{i}", "puzzle_meta_data.json")
+        )
+
         # Generate puzzle pieces
-        puzzlePieces, puzzlePiecesInfo = create_puzzle_pieces(img)
+        puzzlePieces, puzzlePiecesInfo, puzzle_meta_data = create_puzzle_pieces(
+            img, meta_data
+        )
 
         # Save puzzle pieces
         puzzle_name = f"jigsaw{i}"
         save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name)
+        save_metadata(puzzle_meta_data, puzzle_name)
 
         print(f"Shuffled {puzzle_name}")
 

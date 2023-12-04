@@ -5,7 +5,11 @@ import os
 import glob
 
 from utilsMath import rotate_image_easy, rotate_image
-from utilsLoad import read_puzzle_pieces_info, load_puzzle_pieces
+from utilsLoad import (
+    load_puzzle_pieces_info,
+    load_puzzle_pieces,
+    save_puzzle_pieces_info,
+)
 
 
 # Paths
@@ -27,7 +31,7 @@ def apply_opposite_rotation(image, angle):
 def solve_puzzle(puzzle_name, info_filename="puzzle_pieces_info.csv", save_name=""):
     puzzle_pieces_info_file = os.path.join(shuffledPath, puzzle_name, info_filename)
 
-    pieceInfo = read_puzzle_pieces_info(puzzle_pieces_info_file)
+    pieceInfo = load_puzzle_pieces_info(puzzle_pieces_info_file)
     pieces, _ = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
     # Unshuffle  #  Turns out this is uneeded, as piece and piece info are still matched
@@ -72,6 +76,9 @@ def solve_puzzle(puzzle_name, info_filename="puzzle_pieces_info.csv", save_name=
     print(f"Saving solved puzzle... {puzzle_name}_solved{save_name}.png")
     cv2.imwrite(
         os.path.join(solvedPath, f"{puzzle_name}_solved{save_name}.png"), solvedPuzzle
+    )
+    save_puzzle_pieces_info(
+        pieceInfo, solvedPath, f"{puzzle_name}_solved{save_name}.csv"
     )
     return solvedPuzzle
 
