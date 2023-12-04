@@ -4,13 +4,9 @@ import numpy as np
 import os
 import glob
 
-from utils import (
-    find_bounding_box,
-    rotate_image_easy,
-    rotate_image,
-    read_puzzle_pieces_info,
-    load_puzzle_pieces,
-)
+from utilsMath import rotate_image_easy, rotate_image
+from utilsLoad import read_puzzle_pieces_info, load_puzzle_pieces
+
 
 # Paths
 shuffledPath = "Puzzles/Shuffled/"

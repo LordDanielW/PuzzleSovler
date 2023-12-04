@@ -7,7 +7,6 @@ import glob
 from scipy import ndimage
 
 from utils import (
-    find_bounding_box,
     rotate_image_easy,
     rotate_image,
     ensure_directory_exists,

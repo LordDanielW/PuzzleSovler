@@ -5,22 +5,17 @@ import os
 import matplotlib.pyplot as plt
 import glob
 
-from utils import (
-    find_bounding_box,
-    rotate_image_easy,
-    rotate_image,
-    read_puzzle_pieces_info,
-    load_puzzle_pieces,
-)
+from utilsMath import distance_squared_average
 
-from drawUtils import (
+from utilsLoad import read_puzzle_pieces_info, load_puzzle_pieces, read_metadata
+from utilsDraw import (
     draw_gradient_contours,
     plot_histogram,
     draw_segmented_contours,
+    scale_piece,
 )
-
+from utilsMath import distance_squared_average
 from puzzleClass import PieceInfo, PuzzleInfo, SideInfo, SideMatch, PuzzleSolve
-
 from definePiece import segmentSides
 
 # Paths
@@ -28,30 +23,7 @@ shuffledPath = "Puzzles/Shuffled/"
 solvedPath = "Puzzles/Solved/"
 
 
-def distance_squared_average(array1, array2, shift_range=3):
-    array1 = np.array(array1)
-    array2 = np.array(array2)
-    min_length = min(len(array1), len(array2))
-
-    min_distance = float("inf")
-    best_shift = 0
-
-    # Try shifting array2 within the range [-shift_range, shift_range]
-    for shift in range(-shift_range, shift_range + 1):
-        shifted_array2 = np.roll(array2, shift)
-        truncated_array1 = array1[:min_length]
-        truncated_array2 = shifted_array2[:min_length]
-        squared_diff = np.square(truncated_array1 - truncated_array2)
-        avg_squared_distance = np.mean(squared_diff)
-
-        if avg_squared_distance < min_distance:
-            min_distance = avg_squared_distance
-            best_shift = shift
-
-    return min_distance, best_shift
-
-
-def findBestMatches(current_piece, side_Index, pieces_to_compare):
+def findBestMatches(current_piece, side_Index, pieces_to_compare, debugVis=False):
     current_piece: PieceInfo
     pieces_to_compare: [PieceInfo]
     current_side = current_piece.sides[side_Index]
@@ -76,21 +48,25 @@ def findBestMatches(current_piece, side_Index, pieces_to_compare):
         all_side_matches, key=lambda match: match.histogram_score
     )[:5]
 
-    # Plot for each of the top 5 matches
-    for match in sorted_side_matches:
-        matched_piece = next(
-            (p for p in pieces_to_compare if p.piece_Index == match.piece_index), None
-        )
-        matched_side = matched_piece.sides[match.side_index] if matched_piece else None
-        if matched_side:
-            plot_all(
-                inv_rev_hist,
-                matched_side.Histogram,
-                current_piece.puzzle_piece,
-                current_side.Points,
-                matched_piece.puzzle_piece,
-                matched_side.Points,
+    if debugVis:
+        # Plot for each of the top 5 matches
+        for match in sorted_side_matches:
+            matched_piece = next(
+                (p for p in pieces_to_compare if p.piece_Index == match.piece_index),
+                None,
             )
+            matched_side = (
+                matched_piece.sides[match.side_index] if matched_piece else None
+            )
+            if matched_side:
+                plot_all(
+                    inv_rev_hist,
+                    matched_side.Histogram,
+                    current_piece.puzzle_piece,
+                    current_side.Points,
+                    matched_piece.puzzle_piece,
+                    matched_side.Points,
+                )
 
     return sorted_side_matches
 
@@ -196,12 +172,6 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
         return None
 
 
-# def findBestBorder(start_piece, corner_pieces, edge_pieces):
-#     start_piece: PieceInfo
-#     corner_pieces: [PieceInfo]
-#     edge_pieces: [PieceInfo]
-
-
 def findAPuzzle(puzzleSolve, last_piece, pieces_left):
     puzzleSolve: PuzzleSolve
     last_piece: PieceInfo
@@ -297,6 +267,9 @@ def generate_solution_CSV(puzzleSolve, filename):
 
 def solve_puzzle(puzzle_name):
     raw_pieces, piecesInfo = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
+    meta_data = read_metadata(
+        os.path.join(shuffledPath, puzzle_name, "puzzle_meta_data.csv")
+    )
 
     puzzle = PuzzleInfo()
     pieces_to_compare: [PieceInfo] = []
@@ -351,6 +324,22 @@ def solve_puzzle(puzzle_name):
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
 
+    # Lets Solve a Puzzle
+    puzzleSolve = PuzzleSolve(meta_data)
+    first_piece = corner_pieces[0]
+
+    # Orient the corner piece correctly
+    counter = 0
+    while not (first_piece.sides[3].isEdge and first_piece.sides[0].isEdge):
+        if counter == 4:
+            print("Broken Corner")
+            break
+        first_piece.rotate_sides()
+        counter += 1
+
+    scale_piece(first_piece.puzzle_piece, "first_piece", 2, wait=True)
+    puzzleSolve.add_piece(0, 0, corner_pieces[0], True)
+
     # puzzleSolve = PuzzleSolve()
     # last_piece = corner_pieces[0]
     # # pieces_left = []
@@ -359,33 +348,34 @@ def solve_puzzle(puzzle_name):
     # a_solution = findAPuzzle(puzzleSolve, last_piece, pieces_left)
     # space_puzzle(a_solution)
     # generate_solution_CSV(a_solution, "Puzzles\Shuffled\jigsaw1\puzzle_placement.csv")
-    good_solutions = []
-    best_solution = None
-    for corner_piece in corner_pieces:
-        puzzleSolve = PuzzleSolve()
 
-        # Orient the corner piece correctly
-        counter = 0
-        while not (corner_piece.sides[3].isEdge and corner_piece.sides[0].isEdge):
-            if counter == 4:
-                print("Broken Corner")
-                break
-            corner_piece.rotate_sides()
-            counter += 1
+    # good_solutions = []
+    # best_solution = None
+    # for corner_piece in corner_pieces:
+    #     puzzleSolve = PuzzleSolve()
 
-        puzzleSolve.add_piece(0, 0, corner_piece)
-        puzzle_pieces_left = puzzle.pieces
-        puzzle_pieces_left.remove(corner_piece)
-        bestSolve = findBestPuzzle(puzzleSolve, corner_piece, puzzle_pieces_left)
+    #     # Orient the corner piece correctly
+    #     counter = 0
+    #     while not (corner_piece.sides[3].isEdge and corner_piece.sides[0].isEdge):
+    #         if counter == 4:
+    #             print("Broken Corner")
+    #             break
+    #         corner_piece.rotate_sides()
+    #         counter += 1
 
-        if bestSolve:
-            good_solutions.append(bestSolve)
+    #     puzzleSolve.add_piece(0, 0, corner_piece)
+    #     puzzle_pieces_left = puzzle.pieces
+    #     puzzle_pieces_left.remove(corner_piece)
+    #     bestSolve = findBestPuzzle(puzzleSolve, corner_piece, puzzle_pieces_left)
 
-    if good_solutions:
-        best_solution = min(good_solutions, key=lambda ps: ps.puzzle_score)
+    #     if bestSolve:
+    #         good_solutions.append(bestSolve)
 
-    space_puzzle(best_solution)
-    generate_solution_CSV(best_solution, "Puzzles\Shuffled\jigsaw1\solution.csv")
+    # if good_solutions:
+    #     best_solution = min(good_solutions, key=lambda ps: ps.puzzle_score)
+
+    # space_puzzle(best_solution)
+    # generate_solution_CSV(best_solution, "Puzzles\Shuffled\jigsaw1\solution.csv")
 
 
 # Example usage

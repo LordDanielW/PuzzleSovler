@@ -1,11 +1,29 @@
 import cv2
-import csv
 import numpy as np
-import os
-
 from scipy import ndimage
 
-from puzzleClass import MetaData
+
+def distance_squared_average(array1, array2, shift_range=3):
+    array1 = np.array(array1)
+    array2 = np.array(array2)
+    min_length = min(len(array1), len(array2))
+
+    min_distance = float("inf")
+    best_shift = 0
+
+    # Try shifting array2 within the range [-shift_range, shift_range]
+    for shift in range(-shift_range, shift_range + 1):
+        shifted_array2 = np.roll(array2, shift)
+        truncated_array1 = array1[:min_length]
+        truncated_array2 = shifted_array2[:min_length]
+        squared_diff = np.square(truncated_array1 - truncated_array2)
+        avg_squared_distance = np.mean(squared_diff)
+
+        if avg_squared_distance < min_distance:
+            min_distance = avg_squared_distance
+            best_shift = shift
+
+    return min_distance, best_shift
 
 
 def find_bounding_box(image):
@@ -89,55 +107,3 @@ def rotate_image(image, angle):
     cropped_image = rotated_image[box[0][1] : box[1][1], box[0][0] : box[1][0]]
 
     return cropped_image
-
-
-def read_metadata(file_path):
-    with open(file_path, mode="r") as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            metadata = MetaData(
-                _seed=int(row["_seed"]),
-                _tabsize=int(row["_tabsize"]),
-                _jitter=int(row["_jitter"]),
-                xn=int(row["xn"]),
-                yn=int(row["yn"]),
-                width=int(row["width"]),
-                height=int(row["height"]),
-            )
-            return metadata
-
-
-def read_puzzle_pieces_info(csv_file):
-    puzzlePiecesInfo = []
-    with open(csv_file, "r") as file:
-        csvreader = csv.DictReader(file)
-        for row in csvreader:
-            # Convert all values to integers if needed
-            info = {
-                key: int(value) if value.isdigit() else value
-                for key, value in row.items()
-            }
-            puzzlePiecesInfo.append(info)
-    return puzzlePiecesInfo
-
-
-def load_puzzle_pieces(puzzle_folder):
-    puzzlePieces = []
-    pieceInfo = []
-    i = 0
-    while True:
-        filepath = os.path.join(puzzle_folder, f"piece_{i}.png")
-        if os.path.exists(filepath):
-            img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
-            if img is not None:
-                puzzlePieces.append(img)
-                pieceInfo.append({"piece_name": f"piece_{i}.png"})
-            i += 1
-        else:
-            break
-    return puzzlePieces, pieceInfo
-
-
-def ensure_directory_exists(path):
-    if not os.path.exists(path):
-        os.makedirs(path)

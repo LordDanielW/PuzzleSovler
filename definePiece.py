@@ -9,15 +9,11 @@ from scipy.ndimage import gaussian_filter
 from itertools import combinations
 import colorsys
 
-from utils import (
-    find_bounding_box,
-    rotate_image_easy,
-    rotate_image,
-    read_puzzle_pieces_info,
+from utilsLoad import (
     load_puzzle_pieces,
 )
 
-from drawUtils import (
+from utilsDraw import (
     draw_gradient_contours,
     plot_histogram,
     draw_segmented_contours,
