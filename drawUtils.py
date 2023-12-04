@@ -101,31 +101,14 @@ def generate_spaced_colors(n):
 
 
 def draw_segmented_contours(img, contours, name="Segmented Contours"):
-    colors = generate_spaced_colors(len(contours))
-
-    # Convert grayscale to BGR if necessary
-    if len(img.shape) == 2:
-        img_color = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    # Check if contours is a single contour or a list of contours
+    if isinstance(contours[0], np.ndarray) and len(contours[0].shape) == 2:
+        # It's a single contour
+        contours = [contours]  # Make it a list of one contour
+        colors = [(0, 255, 0)]  # Single color for a single contour
     else:
-        img_color = img.copy()
-
-    for i, contour in enumerate(contours):
-        for ii, point in enumerate(contour):
-            cv2.circle(img_color, tuple(point[0]), 2, colors[i], 2)
-
-    # Resize for display, preserving aspect ratio
-    scaling_factor = 2
-    new_width = img_color.shape[1] * scaling_factor
-    new_height = img_color.shape[0] * scaling_factor
-    resized_img = cv2.resize(img_color, (new_width, new_height))
-
-    cv2.imshow(name, resized_img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
-
-def draw_segmented_contours2(img, contours, name="Segmented Contours"):
-    colors = generate_spaced_colors(len(contours))
+        # It's a list of contours
+        colors = generate_spaced_colors(len(contours))
 
     # Convert grayscale to BGR if necessary
     if len(img.shape) == 2:
@@ -135,12 +118,7 @@ def draw_segmented_contours2(img, contours, name="Segmented Contours"):
 
     for i, contour in enumerate(contours):
         for point in contour:
-            # Ensure point is in the format [x, y]
-            if point.shape == (1, 2):
-                x, y = point.ravel()
-                cv2.circle(img_color, (x, y), 2, colors[i], 2)
-            else:
-                print("Invalid point format:", point)
+            cv2.circle(img_color, tuple(point[0]), 2, colors[i], 2)
 
     # Resize for display, preserving aspect ratio
     scaling_factor = 2

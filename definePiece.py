@@ -21,7 +21,7 @@ from drawUtils import (
     draw_gradient_contours,
     plot_histogram,
     draw_segmented_contours,
-    draw_segmented_contours2,
+    
 )
 
 from puzzleClass import PieceInfo, PuzzleInfo, SideInfo
@@ -33,12 +33,11 @@ solvedPath = "Puzzles/Solved/"
 
 
 def find_contour(img, debugVisuals=False):
-    cv2.imshow("img", img)
-    cv2.waitKey(0)
+    if debugVisuals:
+        cv2.imshow("Original", img)
     inverted = 255 - img
     if debugVisuals:
         cv2.imshow("Inverted", inverted)
-        cv2.waitKey(0)
 
     _, thresh = cv2.threshold(inverted, 25, 255, cv2.THRESH_BINARY)
     if debugVisuals:
@@ -68,7 +67,7 @@ def calculate_angle(vec1, vec2):
 def segmentSides(
     piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=4
 ):
-    contour = find_contour(piece, True)
+    contour = find_contour(piece, False)
     sample_points = contour[::downSampleFactor]
 
     angle_differences = []

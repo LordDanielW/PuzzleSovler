@@ -13,7 +13,11 @@ from utils import (
     load_puzzle_pieces,
 )
 
-from drawUtils import draw_gradient_contours, plot_histogram, draw_segmented_contours2
+from drawUtils import (
+    draw_gradient_contours,
+    plot_histogram,
+    draw_segmented_contours,
+)
 
 from puzzleClass import PieceInfo, PuzzleInfo, SideInfo, SideMatch, PuzzleSolve
 
@@ -50,65 +54,61 @@ def distance_squared_average(array1, array2, shift_range=3):
 def findBestMatches(current_piece, side_Index, pieces_to_compare):
     current_piece: PieceInfo
     pieces_to_compare: [PieceInfo]
-    side = current_piece.sides[side_Index]
-    reversed_histogram = np.array(side.Histogram)[::-1]
+    current_side = current_piece.sides[side_Index]
+    reversed_histogram = np.array(current_side.Histogram)[::-1]
     inv_rev_hist = np.array(reversed_histogram) * -1
     all_side_matches = []
-
-    best_dis_sqrd = 1000000000
-    best_match = None
-    best_piece = None
-    best_side = None
 
     for piece in pieces_to_compare:
         piece: PieceInfo
         for side in piece.sides:
             side: SideInfo
-            if side.isEdge == False:
+            if not side.isEdge:
                 dis_sqrd, shift = distance_squared_average(inv_rev_hist, side.Histogram)
                 side_match = SideMatch()
                 side_match.piece_index = piece.piece_Index
                 side_match.side_index = side.side_Index
                 side_match.histogram_score = dis_sqrd
                 side_match.histogram_shift = shift
-                side.side_matches.append(side_match)
-                if dis_sqrd < best_dis_sqrd:
-                    best_dis_sqrd = dis_sqrd
-                    best_match = side.Histogram
-                    best_piece = piece
-                    best_side = side
-
-    # if best_piece:
-    #     plot_all(
-    #         inv_rev_hist,
-    #         best_match,
-    #         current_piece.puzzle_piece,
-    #         side.Points,
-    #         best_piece.puzzle_piece,
-    #         best_side.Points,
-    #     )
+                all_side_matches.append(side_match)
 
     sorted_side_matches = sorted(
         all_side_matches, key=lambda match: match.histogram_score
-    )[:5]
+    )  # [:5]
+
+    # # Plot for each of the top 5 matches
+    # for match in sorted_side_matches:
+    #     matched_piece = next(
+    #         (p for p in pieces_to_compare if p.piece_Index == match.piece_index), None
+    #     )
+    #     matched_side = matched_piece.sides[match.side_index] if matched_piece else None
+    #     if matched_side:
+    #         plot_all(
+    #             inv_rev_hist,
+    #             matched_side.Histogram,
+    #             current_piece.puzzle_piece,
+    #             current_side.Points,
+    #             matched_piece.puzzle_piece,
+    #             matched_side.Points,
+    #         )
 
     return sorted_side_matches
 
 
 def plot_all(
     reversed_histogram,
-    best_match_histogram,
+    match_histogram,
     current_puzzle_piece,
     current_points,
-    best_puzzle_piece,
-    best_points,
+    match_puzzle_piece,
+    match_points,
 ):
-    draw_segmented_contours2(current_puzzle_piece, current_points, "current_piece")
-    draw_segmented_contours2(best_puzzle_piece, best_points, "best_piece")
+    draw_segmented_contours(current_puzzle_piece, current_points, "current_piece")
+    draw_segmented_contours(match_puzzle_piece, match_points, "match_piece")
 
     plt.figure(figsize=(10, 6))
     plt.plot(reversed_histogram, label="Reversed Histogram")
-    plt.plot(best_match_histogram, label="Best Match Histogram")
+    plt.plot(match_histogram, label="Match Histogram")
     plt.title("Histogram Comparison")
     plt.xlabel("Index")
     plt.ylabel("Value")
@@ -116,13 +116,18 @@ def plot_all(
     plt.show()
 
 
-# Function to find the best match for a given side
-def find_best_match_for_side(side, pieces):
+def find_best_match_for_side(side, pieces, max_matches=5):
+    matches = []
     for side_match in side.side_matches:
+        if len(matches) >= max_matches:
+            break  # Stop when we reach the maximum number of matches
+
         for piece in pieces:
             if piece.piece_Index == side_match.piece_index:
-                return piece, side_match
-    return None, None
+                matches.append((piece, side_match))
+                break  # Found a match for this side match, move to the next
+
+    return matches
 
 
 def findBestPuzzle(puzzleSolve, piece, pieces_left):
@@ -139,11 +144,9 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
 
     # Place piece for side 2 (bottom)
     if not piece.sides[2].isEdge:
-        best_match_piece, best_match = find_best_match_for_side(
-            piece.sides[2], pieces_left
-        )
-        if best_match_piece:
-            # Remove matched piece from pieces_left and update puzzleSolve
+        matches = find_best_match_for_side(piece.sides[2], pieces_left)
+
+        for best_match_piece, best_match in matches:
             y_pieces_left = pieces_left.copy()
             y_pieces_left.remove(best_match_piece)
             best_match_piece.rotate_sides()  # Rotate to align the matched side correctly
@@ -156,7 +159,6 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
             puzzleSolve.puzzle_score += best_match.histogram_score
 
             # Recursive call with the next piece
-
             new_puzzle_solve = findBestPuzzle(
                 puzzleSolve, best_match_piece, y_pieces_left
             )
@@ -165,12 +167,11 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
 
     # Place piece for side 1 (right)
     if not piece.sides[1].isEdge:
-        best_match_piece, best_match = find_best_match_for_side(
-            piece.sides[1], pieces_left
-        )
-        if best_match_piece:
-            # Remove matched piece from pieces_left and update puzzleSolve
-            pieces_left.remove(best_match_piece)
+        matches = find_best_match_for_side(piece.sides[1], pieces_left)
+
+        for best_match_piece, best_match in matches:
+            x_pieces_left = pieces_left.copy()
+            x_pieces_left.remove(best_match_piece)
             best_match_piece.rotate_sides()  # Rotate to align the matched side correctly
             while best_match_piece.sides[3].side_Index != best_match.side_index:
                 best_match_piece.rotate_sides()
@@ -181,9 +182,8 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
             puzzleSolve.puzzle_score += best_match.histogram_score
 
             # Recursive call with the next piece
-
             new_puzzle_solve = findBestPuzzle(
-                puzzleSolve, best_match_piece, pieces_left
+                puzzleSolve, best_match_piece, x_pieces_left
             )
             if new_puzzle_solve:
                 returnSolved.append(new_puzzle_solve)
@@ -200,6 +200,99 @@ def findBestPuzzle(puzzleSolve, piece, pieces_left):
 #     start_piece: PieceInfo
 #     corner_pieces: [PieceInfo]
 #     edge_pieces: [PieceInfo]
+
+
+def findAPuzzle(puzzleSolve, last_piece, pieces_left):
+    puzzleSolve: PuzzleSolve
+    last_piece: PieceInfo
+    pieces_left: [PieceInfo]
+
+    if not pieces_left:
+        return puzzleSolve
+
+    # Assuming the last_piece is placed at (0,0) initially
+    if not puzzleSolve.pieces:
+        puzzleSolve.add_piece(0, 0, last_piece)
+        puzzleSolve.update_score(puzzleSolve.puzzle_score + 100)
+
+    last_x, last_y = puzzleSolve.find_piece(last_piece)
+    # width, height = puzzleSolve.width, puzzleSolve.height
+    width, height = 8, 9
+
+    # Try placing pieces to the right and bottom of the last placed piece
+    for w in range(width):
+        for h in range(height):
+            if w == 0 and h == 0:
+                continue
+            puzzleSolve.add_piece(h, w, pieces_left[0])
+            puzzleSolve.update_score(puzzleSolve.puzzle_score + 100)
+            pieces_left.remove(pieces_left[0])
+
+    return puzzleSolve
+
+
+def space_puzzle(puzzleSolve):
+    puzzleSolve: PuzzleSolve
+
+    # Find the maximum extent of the puzzle
+    max_y = max(y for (y, x) in puzzleSolve.pieces.keys())
+    max_x = max(x for (y, x) in puzzleSolve.pieces.keys())
+
+    for y in range(max_y + 1):
+        for x in range(max_x + 1):
+            if (y, x) in puzzleSolve.pieces:
+                current_piece = puzzleSolve.pieces[(y, x)]
+                left_x, top_y = 0, 0
+
+                # Check for a piece to the left
+                if (y, x - 1) in puzzleSolve.pieces:
+                    left_neighbor = puzzleSolve.pieces[(y, x - 1)]
+                    left_x = left_neighbor.right_x
+
+                # Check for a piece above
+                if (y - 1, x) in puzzleSolve.pieces:
+                    top_neighbor = puzzleSolve.pieces[(y - 1, x)]
+                    top_y = top_neighbor.bottom_y
+
+                # Calculate the bounding rectangle for each contour
+                _, _, width, height = cv2.boundingRect(current_piece.puzzle_piece)
+
+                # Set right_x and bottom_y for the current piece
+                current_piece.left_x = left_x
+                current_piece.top_y = top_y
+                current_piece.right_x = left_x + width
+                current_piece.bottom_y = top_y + height
+
+
+def generate_solution_CSV(puzzleSolve, filename):
+    with open(filename, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        # Writing the header
+        writer.writerow(
+            [
+                "piece_Index",
+                "top_y",
+                "left_x",
+                "bottom_y",
+                "right_x",
+                "angle",
+                "piece_name",
+            ]
+        )
+
+        # Iterating through puzzle pieces and writing their data
+        for _, piece in puzzleSolve.pieces.items():
+            writer.writerow(
+                [
+                    piece.piece_Index,
+                    piece.top_y,
+                    piece.left_x,
+                    piece.bottom_y,
+                    piece.right_x,
+                    piece.angle,
+                    piece.piece_name,
+                ]
+            )
 
 
 def solve_puzzle(puzzle_name):
@@ -227,9 +320,10 @@ def solve_puzzle(puzzle_name):
 
         pieces_to_compare.pop(0)
 
-    corner_pieces = [PieceInfo()]
-    edge_pieces = [PieceInfo()]
-    middle_pieces = [PieceInfo()]
+    corner_pieces: [PieceInfo] = []
+    edge_pieces: [PieceInfo] = []
+    middle_pieces: [PieceInfo] = []
+
     for piece in puzzle.pieces:
         if piece.isCorner:
             corner_pieces.append(piece)
@@ -239,33 +333,62 @@ def solve_puzzle(puzzle_name):
         else:
             middle_pieces.append(piece)
 
-    puzzleSolve = PuzzleSolve()
-    first_piece = corner_pieces[0]
-    counter = 0
-    while not (first_piece.sides[3].isEdge and first_piece.sides[0].isEdge):
-        if counter == 4:
-            print("Broken Corner")
-            break
-        first_piece.rotate_sides()
-        counter += 1
-    puzzleSolve.add_piece(0, 0, first_piece)
-    puzzle_pieces_left = puzzle.pieces
-    bestSolve = findBestPuzzle(puzzleSolve, first_piece, puzzle_pieces_left.copy())
+    for c_piece in corner_pieces:
+        contours = []
+        for side in c_piece.sides:
+            if side.isEdge:
+                contours.append(side.Points)
+        # draw_segmented_contours(c_piece.puzzle_piece, contours, "corner_piece")
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
-    write_placement_to_csv(bestSolve, "puzzle_placement.csv")
+    for e_piece in edge_pieces:
+        contours = []
+        for side in e_piece.sides:
+            if side.isEdge:
+                contours.append(side.Points)
+        # draw_segmented_contours(e_piece.puzzle_piece, contours, "edge_piece")
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+
+    puzzleSolve = PuzzleSolve()
+    last_piece = corner_pieces[0]
+    # pieces_left = []
+    pieces_left = puzzle.pieces
+    pieces_left.remove(last_piece)
+    a_solution = findAPuzzle(puzzleSolve, last_piece, pieces_left)
+    space_puzzle(a_solution)
+    generate_solution_CSV(a_solution, "Puzzles\Shuffled\jigsaw1\puzzle_placement.csv")
+    # good_solutions = []
+    # best_solution = None
+    # for corner_piece in corner_pieces:
+    #     puzzleSolve = PuzzleSolve()
+
+    #     # Orient the corner piece correctly
+    #     counter = 0
+    #     while not (corner_piece.sides[3].isEdge and corner_piece.sides[0].isEdge):
+    #         if counter == 4:
+    #             print("Broken Corner")
+    #             break
+    #         corner_piece.rotate_sides()
+    #         counter += 1
+
+    #     puzzleSolve.add_piece(0, 0, corner_piece)
+    #     puzzle_pieces_left = edge_pieces.copy()
+    #     puzzle_pieces_left.remove(corner_piece)
+    #     bestSolve = findBestPuzzle(puzzleSolve, corner_piece, puzzle_pieces_left)
+
+    #     if bestSolve:
+    #         good_solutions.append(bestSolve)
+
+    # # Return the best solution based on the puzzle score
+    # if good_solutions:
+    #     best_solution = min(good_solutions, key=lambda ps: ps.puzzle_score)
+
     # # Save the solved puzzle
     # print(f"Saving solved puzzle... {puzzle_name}_solved.png")
     # cv2.imwrite(os.path.join(solvedPath, f"{puzzle_name}_solved.png"), solvedPuzzle)
     # return solvedPuzzle
-
-
-def write_placement_to_csv(puzzleSolve, filename):
-    with open(filename, "w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["y_piece_index", "x_piece_index", "piece_index"])
-
-        for (y, x), piece in puzzleSolve.pieces.items():
-            writer.writerow([y, x, piece.piece_Index])
 
 
 # Example usage

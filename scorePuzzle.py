@@ -120,8 +120,8 @@ def main():
         "Puzzles/Shuffled/" + puzzle_name + "/puzzle_meta_data.csv"
     )
     metric_file_path = "Puzzles/Shuffled/" + puzzle_name + "/puzzle_pieces_info.csv"
-    # solution_file_path = "Puzzles/Solved/" + puzzle_name + "_solved.csv"
-    solution_file_path = "Puzzles/Shuffled/" + puzzle_name + "/puzzle_pieces_info.csv"
+    solution_file_path = "Puzzles/Solved/puzzle_placement.csv"
+    # solution_file_path = "Puzzles/Shuffled/" + puzzle_name + "/puzzle_pieces_info.csv"
     score_output_file_path = "Puzzles/Solved/" + puzzle_name + "_grade.csv"
 
     score_puzzle(
