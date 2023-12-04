@@ -174,9 +174,10 @@ def main():
             return  # If the image was not read properly, skip this iteration
 
         # Read Puzzle Meta Data
-        meta_data = load_metadata(
-            os.path.join(shuffledPath, f"jigsaw{i}", "puzzle_meta_data.json")
+        meta_data_file_path = os.path.join(
+            shuffledPath, f"jigsaw{i}", "puzzle_meta_data.json"
         )
+        meta_data = load_metadata(meta_data_file_path)
 
         # Generate puzzle pieces
         puzzlePieces, puzzlePiecesInfo, puzzle_meta_data = create_puzzle_pieces(
@@ -186,7 +187,7 @@ def main():
         # Save puzzle pieces
         puzzle_name = f"jigsaw{i}"
         save_puzzle_pieces(puzzlePieces, puzzlePiecesInfo, puzzle_name)
-        save_metadata(puzzle_meta_data, puzzle_name)
+        save_metadata(puzzle_meta_data, meta_data_file_path)
 
         print(f"Shuffled {puzzle_name}")
 
