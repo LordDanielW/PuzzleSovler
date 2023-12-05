@@ -13,6 +13,7 @@ from utilsDraw import (
     plot_histogram,
     draw_segmented_contours,
     scale_piece,
+    show_all,
 )
 from utilsMath import distance_squared_average
 from classPuzzle import PieceInfo, PuzzleInfo, SideInfo, SideMatch, PuzzleSolve
@@ -46,11 +47,13 @@ def findBestMatches(current_piece, side_Index, pieces_to_compare, debugVis=False
 
     sorted_side_matches = sorted(
         all_side_matches, key=lambda match: match.histogram_score
-    )[:5]
+    )
 
     if debugVis:
         # Plot for each of the top 5 matches
-        for match in sorted_side_matches:
+        for i, match in enumerate(sorted_side_matches):
+            if i == 5:
+                break
             matched_piece = next(
                 (p for p in pieces_to_compare if p.piece_Index == match.piece_index),
                 None,
@@ -265,7 +268,7 @@ def generate_solution_CSV(puzzleSolve, filename):
             )
 
 
-def solve_puzzle(puzzle_name):
+def solve_puzzle(puzzle_name, debugVis=True):
     raw_pieces, piecesInfo = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
     meta_data = load_metadata(
         os.path.join(shuffledPath, puzzle_name, "puzzle_meta_data.json")
@@ -274,21 +277,25 @@ def solve_puzzle(puzzle_name):
     puzzle = PuzzleInfo()
     pieces_to_compare: [PieceInfo] = []
 
+    # Define All Pieces
     for i, raw_piece in enumerate(raw_pieces):
-        piece: PieceInfo = segmentSides(raw_piece, i == 0, 4, 3)
+        # For Debug i == 0
+        piece: PieceInfo = segmentSides(raw_piece, False, 4, 3)
         piece.piece_Index = i
         piece.piece_name = piecesInfo[i]["piece_name"]
         puzzle.pieces.append(piece)
         if i > 0:
             pieces_to_compare.append(piece)
 
+    # Find matches for Sides
     for i, tPiece in enumerate(puzzle.pieces[:-1]):
         tPiece: PieceInfo
         for tSide in tPiece.sides:
             tSide: SideInfo
             if tSide.isEdge == False:
+                # For Debug i == 0
                 tSide.side_matches = findBestMatches(
-                    tPiece, tSide.side_Index, pieces_to_compare, i == 0
+                    tPiece, tSide.side_Index, pieces_to_compare, False
                 )
 
         pieces_to_compare.pop(0)
@@ -297,6 +304,7 @@ def solve_puzzle(puzzle_name):
     edge_pieces: [PieceInfo] = []
     middle_pieces: [PieceInfo] = []
 
+    # Find Edges / Corners / Middle Pieces
     for piece in puzzle.pieces:
         if piece.isCorner:
             corner_pieces.append(piece)
@@ -306,27 +314,37 @@ def solve_puzzle(puzzle_name):
         else:
             middle_pieces.append(piece)
 
-    for c_piece in corner_pieces:
-        contours = []
-        for side in c_piece.sides:
-            if side.isEdge:
-                contours.append(side.Points)
-        # draw_segmented_contours(c_piece.puzzle_piece, contours, "corner_piece")
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+    # Verify Edges / Corners
+    if debugVis:
+        corner_images = []
+        for c_piece in corner_pieces:
+            contours = []
+            for side in c_piece.sides:
+                if side.isEdge:
+                    contours.append(side.Points)
+            corner_images.append(
+                draw_segmented_contours(
+                    c_piece.puzzle_piece, contours, "corner_piece", False, False
+                )
+            )
+        show_all(corner_images, "Corner Pieces", 5, 1, False, True)
 
-    for e_piece in edge_pieces:
-        contours = []
-        for side in e_piece.sides:
-            if side.isEdge:
-                contours.append(side.Points)
-        # draw_segmented_contours(e_piece.puzzle_piece, contours, "edge_piece")
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        edge_images = []
+        for e_piece in edge_pieces:
+            contours = []
+            for side in e_piece.sides:
+                if side.isEdge:
+                    contours.append(side.Points)
+            edge_images.append(
+                draw_segmented_contours(
+                    e_piece.puzzle_piece, contours, "edge_piece", False, False
+                )
+            )
+        show_all(edge_images, "Edge Pieces", 5, 0.5, True, True)
 
     # Lets Solve a Puzzle
     puzzleSolve = PuzzleSolve(meta_data)
-    first_piece = corner_pieces[0]
+    first_piece: PieceInfo = corner_pieces[0]
 
     # Orient the corner piece correctly
     counter = 0
@@ -334,11 +352,21 @@ def solve_puzzle(puzzle_name):
         if counter == 4:
             print("Broken Corner")
             break
-        first_piece.rotate_sides()
+        first_piece.rotate_quick()
         counter += 1
 
     scale_piece(first_piece.puzzle_piece, "first_piece", 2, wait=True)
     puzzleSolve.add_piece(0, 0, corner_pieces[0], True)
+
+    # Grab all edges align them to edge = 0
+    aligned_edges = []
+    for edge_piece in edge_pieces:
+        edge_piece: PieceInfo
+        while not (edge_piece.sides[0].isEdge):
+            edge_piece.rotate_quick()
+        aligned_edges.append(edge_piece)
+
+    # create a function that scores matches on just edges
 
     # puzzleSolve = PuzzleSolve()
     # last_piece = corner_pieces[0]

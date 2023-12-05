@@ -102,7 +102,7 @@ def score_puzzle(
 def main():
     # puzzle_name = "jigsaw1"
 
-    for i in range(10):
+    for i in range(5):
         puzzle_name = f"jigsaw{i}"
 
         puzzle_meta_data_file_path = (

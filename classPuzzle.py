@@ -50,12 +50,20 @@ class PieceInfo:
         self.right_x = 0
         self.angle = 0
 
-    def rotate_sides(self):
+    def rotate_quick(self):
         self.sides = self.sides[-1:] + self.sides[:-1]
         self.angle = (self.angle + 90) % 360
         self.puzzle_piece = rotate_image_easy(
             self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
         )
+    
+    # TODO
+    def rotate_piece_deep(self):        
+        self.angle = (self.angle + 90) % 360
+        self.puzzle_piece = rotate_image_easy(
+            self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
+        )
+        # TODO rerun segment piece
 
 
 class PuzzleInfo:
@@ -159,9 +167,9 @@ class PuzzleSolve:
 
     def generate_puzzle_image(self):
         """Generate the puzzle image."""
-        error_margin = 10
+        error_margin = 1.5
         puzzle_image = np.zeros(
-            (self.metadata.height + error_margin, self.metadata.width + error_margin),
+            (self.metadata.height * error_margin, self.metadata.width * error_margin),
             dtype=np.uint8,
         )
 

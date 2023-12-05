@@ -5,7 +5,9 @@ from scipy.ndimage import gaussian_filter
 import colorsys
 
 
-def draw_gradient_contours(img, contour, name="Colored Contours"):
+def draw_gradient_contours(
+    img, contour, name="Colored Contours", wait=False, draw=True
+):
     length = len(contour)
 
     # Convert grayscale to BGR if necessary
@@ -32,7 +34,7 @@ def draw_gradient_contours(img, contour, name="Colored Contours"):
 
         cv2.circle(img_color, tuple(point[0]), 2, color, 2)
 
-    scale_piece(img_color, name, 2, wait=False)
+    return scale_piece(img_color, name, 2, wait, draw)
 
 
 def plot_histogram(angle_differences):
@@ -92,7 +94,9 @@ def generate_spaced_colors(n):
     return colors
 
 
-def draw_segmented_contours(img, contours, name="Segmented Contours"):
+def draw_segmented_contours(
+    img, contours, name="Segmented Contours", wait=False, draw=True
+):
     # Check if contours is a single contour or a list of contours
     if isinstance(contours[0], np.ndarray) and len(contours[0].shape) == 2:
         # It's a single contour
@@ -112,17 +116,64 @@ def draw_segmented_contours(img, contours, name="Segmented Contours"):
         for point in contour:
             cv2.circle(img_color, tuple(point[0]), 2, colors[i], 2)
 
-    scale_piece(img_color, name, 2, wait=False)
+    return scale_piece(img_color, name, 2, wait, draw)
 
 
-def scale_piece(img, name="", scale_factor=4, wait=False):
+def scale_piece(img, name="", scale_factor=2.0, wait=False, draw=True):
     # Resize for display, preserving aspect ratio
     new_width = img.shape[1] * scale_factor
     new_height = img.shape[0] * scale_factor
-    resized_img = cv2.resize(img, (new_width, new_height))
+    resized_img = cv2.resize(img, (int(new_width), int(new_height)))
 
-    # Display the image with the drawn flat sides
-    cv2.imshow(name, resized_img)
-    if wait:
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    if draw:
+        cv2.imshow(name, resized_img)
+        if wait:
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+    return resized_img
+
+
+def show_all(image_list, name="", row_count=5, scale_factor=2, wait=True, draw=True):
+    rows = []
+
+    # Find the maximum width and height in the entire list
+    max_width = max(img.shape[1] for img in image_list)
+    max_height = max(img.shape[0] for img in image_list)
+
+    # Resize or pad images to the max height and width
+    resized_imgs = []
+    for img in image_list:
+        # Calculate padding dimensions
+        pad_top = (max_height - img.shape[0]) // 2
+        pad_bottom = max_height - img.shape[0] - pad_top
+        pad_left = (max_width - img.shape[1]) // 2
+        pad_right = max_width - img.shape[1] - pad_left
+
+        # Pad the image
+        padded_img = cv2.copyMakeBorder(
+            img,
+            pad_top,
+            pad_bottom,
+            pad_left,
+            pad_right,
+            cv2.BORDER_CONSTANT,
+            value=[0, 0, 0],
+        )
+        resized_imgs.append(padded_img)
+
+    for i in range(0, len(resized_imgs), row_count):
+        batch = resized_imgs[i : i + row_count]
+
+        # Fill in the last row with black images if necessary
+        while len(batch) < row_count:
+            black_img = np.zeros((max_height, max_width, 3), dtype=np.uint8)
+            batch.append(black_img)
+
+        # Concatenate horizontally
+        row = np.hstack(batch)
+        rows.append(row)
+
+    # Concatenate vertically
+    concat_img = np.vstack(rows)
+
+    return scale_piece(concat_img, name, scale_factor, wait, draw)

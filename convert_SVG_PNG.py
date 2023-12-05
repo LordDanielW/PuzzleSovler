@@ -5,8 +5,10 @@ import cv2
 import numpy as np
 
 # Set your input and output directories
-# input_dir = "Puzzles/SVG"
-input_dir = "C:/Users/Dan/Downloads"
+
+# Grabs all *.svg in your Downloads folder
+input_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+# input_dir = "Puzzles/SVG"  # Use this instead for local directory
 output_dir = "Puzzles/Original"
 
 
