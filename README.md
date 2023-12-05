@@ -48,6 +48,9 @@ Puzzles/
 for SVG to PNG only:
 https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
 
+for pytorch only:
+https://developer.nvidia.com/cuda-zone
+
 ### added to requirements.txt (for pip install -r requirements.txt)
 
 pip install cairosvg  
@@ -56,3 +59,5 @@ pip install numpy
 pip install opencv-python  
 pip install scipy  
 pip install matplotlib
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install scikit-learn

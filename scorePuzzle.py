@@ -91,12 +91,14 @@ def score_puzzle(
         metric_pieces = rotated_metric_pieces
 
     # Write the best score to a CSV file
-    with open(output_file, "w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["Best Score"])
-        writer.writerow([best_score])
+    if output_file:
+        with open(output_file, "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Best Score"])
+            writer.writerow([best_score])
 
     print(f"Best score: {best_score}")
+    return best_score
 
 
 def main():
