@@ -143,6 +143,9 @@ def show_all(image_list, name="", row_count=5, scale_factor=2, wait=True, draw=T
     # Resize or pad images to the max height and width
     resized_imgs = []
     for img in image_list:
+        # Convert to RGB if necessary
+        if len(img.shape) == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
         # Calculate padding dimensions
         pad_top = (max_height - img.shape[0]) // 2
         pad_bottom = max_height - img.shape[0] - pad_top

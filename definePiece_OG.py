@@ -14,7 +14,6 @@ from utilsDraw import (
     plot_histogram,
     draw_segmented_contours,
     scale_piece,
-    show_all,
 )
 
 from classPuzzle import PieceInfo, PuzzleInfo, SideInfo
@@ -33,16 +32,10 @@ def find_contour(img, debugVisuals=False):
     contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     if debugVisuals and len(contours) > 0:
-        debugImgs = []
-        debugImgs.append(scale_piece(img, "Original", 2, False, False))
-        debugImgs.append(scale_piece(inverted, "Inverted", 2, False, False))
-        debugImgs.append(scale_piece(thresh, "Thresholded", 2, False, False))
-        debugImgs.append(
-            draw_gradient_contours(img, contours[0], "Contoured", False, False)
-        )
-        show_all(
-            debugImgs, "Original / Inverted / Thresholded / Contoured", 5, 1, True, True
-        )
+        scale_piece(img, "Original", scale_factor=2, wait=False)
+        scale_piece(inverted, "Inverted", scale_factor=2, wait=False)
+        scale_piece(thresh, "Thresholded", scale_factor=2, wait=False)
+        draw_gradient_contours(img, contours[0])
 
     return contours[0]
 
@@ -57,33 +50,64 @@ def calculate_angle(vec1, vec2):
     return int(angle)
 
 
-def calculate_angle_differences(sample_points):
+# segments a piece into 4 sides.
+# returns sides as normalized histograms in CW order
+def segmentSides(
+    piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=4
+):
+    contour = find_contour(piece, debugVis)
+    sample_points = contour[::downSampleFactor]
+
+    angle_differences = []
     number_of_points = len(sample_points)
+    if debugVis:
+        draw_gradient_contours(piece, sample_points, "Downsampled Edge")
 
     if number_of_points < 3:
         print("Not enough points to calculate angles.")
         raise
 
-    angle_differences = []
-    for i in range(len(sample_points)):
-        pt0 = sample_points[i - 1][0]
-        pt1 = sample_points[i][0]
-        pt2 = sample_points[(i + 1) % len(sample_points)][0]
+    # Calculate the vectors and angles between them
+    for i in range(number_of_points):
+        pt0 = sample_points[i - 1][
+            0
+        ]  # Previous point, wrapping around to the last for the first
+        pt1 = sample_points[i][0]  # Current point
+        pt2 = sample_points[(i + 1) % number_of_points][
+            0
+        ]  # Next point, wrapping around
 
         vec1 = pt1 - pt0
         vec2 = pt2 - pt1
 
         angle_diff = calculate_angle(vec1, vec2)
         angle_differences.append(angle_diff)
-    return angle_differences
 
+    # these variable control window size for filtration and corner detection (feel free to change them as needed, but mind that they are related)
+    # if the windowSize is increased, the peakHeight may need to be decreased and vice versa
+    windowSize = 3
+    minPeakHeight_deg = 10
 
-def determine_final_corners(sample_points, peak_indices):
-    peakCandidates = [sample_points[i] for i in peak_indices if i < len(sample_points)]
+    angle_differences = circular_centered_window_filter(angle_differences, windowSize)
 
+    # find peaks
+    localPeakindicies = find_peaks_circular(
+        angle_differences, windowSize, minPeakHeight_deg, False
+    )
+
+    # peak candidates
+    peakCandidates = [
+        sample_points[i] for i in localPeakindicies if i < len(sample_points)
+    ]
+
+    if debugVis:
+        draw_gradient_contours(piece, peakCandidates, "Peak Candidates")
+
+    # ordered sets
     cornerSetCandidates = increasing_combinations(
         len(peakCandidates) - 1, 4
-    )  # sets of 4 ordered indices from peakCandidates
+    )  # sets of 4 ordered indicies from peakCandidates
+
     bestScore = -1
     bestIndex = -1
     for i, ptIndicies in enumerate(cornerSetCandidates):
@@ -98,25 +122,19 @@ def determine_final_corners(sample_points, peak_indices):
     finalIndicies = cornerSetCandidates[bestIndex]
     finalCorners = [peakCandidates[i] for i in finalIndicies if i < len(peakCandidates)]
     finalCornerIndicies = [
-        peak_indices[i] for i in finalIndicies if i < len(peak_indices)
+        localPeakindicies[i] for i in finalIndicies if i < len(localPeakindicies)
     ]
 
-    return finalCorners, finalCornerIndicies
+    if debugVis:
+        draw_gradient_contours(piece, finalCorners, "Final Corners")
 
-
-def segment_edges_and_calculate_histograms(
-    sample_points,
-    angle_differences,
-    finalCornerIndicies,
-    cornerTrim,
-    flat_edge_tolerance,
-):
     edgeHistograms = []
     edgePoints = []
     for i in range(4):
         indexLow = finalCornerIndicies[i]
         indexHigh = finalCornerIndicies[(i + 1) % 4]
 
+        # currentIndex = indexLow + cornerTrim
         currentIndex = (indexLow + cornerTrim) % len(angle_differences)
         isolatedEdge = []
         isolatedEdgePoints = []  # this is just for debugging currently
@@ -124,87 +142,18 @@ def segment_edges_and_calculate_histograms(
             isolatedEdge.append(angle_differences[currentIndex])
             isolatedEdgePoints.append(sample_points[currentIndex])
             currentIndex = (currentIndex + 1) % len(angle_differences)
-
         edgeHistograms.append(isolatedEdge)
         edgePoints.append(isolatedEdgePoints)
 
-    return edgeHistograms, edgePoints
-
-
-# segments a piece into 4 sides.
-# returns sides as normalized histograms in CW order
-def segmentSides(
-    piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=4
-):
-    debugImgs = []
-
-    # Contour
-    contour = find_contour(piece, debugVis)
-
-    # Downsample
-    sample_points = contour[::downSampleFactor]
     if debugVis:
-        debugImgs.append(
-            draw_gradient_contours(
-                piece, sample_points, "Downsampled Edge", False, False
-            )
-        )
-
-    # Angle differences
-    angle_differences = calculate_angle_differences(sample_points)
-
-    # these variable control window size for filtration and corner detection
-    # if the windowSize is increased, the peakHeight may need to be decreased and vice versa
-    windowSize = 3
-    minPeakHeight_deg = 10
-
-    # Circular window filter
-    angle_differences = circular_centered_window_filter(angle_differences, windowSize)
-
-    # Find Peaks
-    localPeakindicies = find_peaks_circular(
-        angle_differences, windowSize, minPeakHeight_deg, False
-    )
-    peakCandidates = [
-        sample_points[i] for i in localPeakindicies if i < len(sample_points)
-    ]
-    if debugVis:
-        debugImgs.append(
-            draw_gradient_contours(
-                piece, peakCandidates, "Peak Candidates", False, False
-            )
-        )
-
-    # Find Corners
-    finalCorners, finalCornerIndicies = determine_final_corners(
-        sample_points, localPeakindicies
-    )
-    if debugVis:
-        debugImgs.append(
-            draw_gradient_contours(piece, finalCorners, "Final Corners", False, False)
-        )
-
-    # Segment Edges
-    edgeHistograms, edgePoints = segment_edges_and_calculate_histograms(
-        sample_points,
-        angle_differences,
-        finalCornerIndicies,
-        cornerTrim,
-        flat_edge_tolerance,
-    )
-    if debugVis:
-        debugImgs.append(
-            draw_segmented_contours(piece, edgePoints, "Segmented Edges", False, False)
-        )
-        show_all(debugImgs, "Define Pieces", 5, 1, True, True)
+        draw_segmented_contours(piece, edgePoints)
         for i, hist in enumerate(edgeHistograms):
             # draw_gradient_contours(piece, edgePoints[i],"Edge Contour "+str(i))
             simpleHistogram(hist, "edge " + str(i))
 
-    # Create PieceInfo object
     thisPiece = PieceInfo()
 
-    # Define Sides
+    # Define the piece's sides
     for i in range(4):
         thisPiece.sides[i].side_Index = i
         thisPiece.sides[i].Histogram = edgeHistograms[i]
@@ -219,7 +168,7 @@ def segmentSides(
         else:
             thisPiece.sides[i].isEdge = False
 
-    # Define Piece
+    # Define the piece
     thisPiece.puzzle_piece = piece
     thisPiece.puzzle_contours_all = contour
     thisPiece.puzzle_sampled_contours = sample_points
@@ -249,6 +198,19 @@ def simpleHistogram(data, name="Simple Histogram"):
 
 
 def circular_centered_window_filter(arr, window_width):
+    """
+    Applies a moving average filter to a circular array of integers, centering
+    the window around each element.
+
+    Parameters:
+    arr (list of int): The input array, considered as circular.
+    window_width (int): The width of the moving window.
+
+    Returns:
+    list of float: The filtered array, with each element being the average
+                   of the window. The length of the output list will be
+                   equal to len(arr).
+    """
     if window_width <= 0:
         raise ValueError("Window width must be greater than 0")
     if window_width > len(arr):
@@ -274,10 +236,22 @@ def circular_centered_window_filter(arr, window_width):
     return filtered
 
 
-# Finds peaks in a circular array.
 def find_peaks_circular(
     arr, window_width, min_peak_height, include_negative_peaks=False
 ):
+    """
+    Finds peaks in a circular array.
+
+    Parameters:
+    arr (list of int): The input array, considered as circular.
+    window_width (int): The width of the window for considering a peak.
+    min_peak_height (int): The minimum height to consider an element a peak.
+    include_negative_peaks (bool): If True, considers both positive and negative peaks;
+                                   otherwise, only positive peaks.
+
+    Returns:
+    list of int: Indices of the peaks in the array.
+    """
     if window_width <= 0:
         raise ValueError("Window width must be greater than 0")
     if window_width > len(arr):
@@ -317,6 +291,17 @@ def find_peaks_circular(
 
 
 def increasing_combinations(n, combo_size):
+    """
+    Generate unique combinations of numbers between 0 and n (inclusive),
+    ensuring numbers in a combination are always increasing.
+
+    Parameters:
+    n (int): The upper bound of the number range.
+    combo_size (int): The size of each combination.
+
+    Returns:
+    list of tuples: A list of unique combinations.
+    """
     if combo_size <= 0 or combo_size > n + 1:
         raise ValueError("Invalid combination size")
 
@@ -382,8 +367,16 @@ def score_of_shape(vertices, angleTolerance_deg):
     return score
 
 
-# Calculates the area of a quadrilateral given by four vertices.
 def shoelace_area(vertices):
+    """
+    Calculates the area of a quadrilateral given by four vertices.
+
+    Parameters:
+    vertices (list of tuples): A list of four (x, y) coordinates representing the vertices of the shape.
+
+    Returns:
+    float: The area of the shape.
+    """
     if len(vertices) != 4:
         raise ValueError("There must be exactly four vertices.")
 

@@ -4,6 +4,7 @@ import numpy as np
 # *** Note: don't inclue utilsLoad for circular dependency ***
 
 from utilsMath import distance_squared_average, rotate_image_easy
+from utilsDraw import scale_piece
 
 
 class SideMatch:
@@ -56,9 +57,9 @@ class PieceInfo:
         self.puzzle_piece = rotate_image_easy(
             self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
         )
-    
+
     # TODO
-    def rotate_piece_deep(self):        
+    def rotate_piece_deep(self):
         self.angle = (self.angle + 90) % 360
         self.puzzle_piece = rotate_image_easy(
             self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
@@ -139,13 +140,13 @@ class PuzzleSolve:
         else:
             if y != 0:
                 self.puzzle_score = self.puzzle_score + distance_squared_average(
-                    piece.sides[0].Points,
-                    self.pieces[(y - 1, x)].sides[2].Points,
+                    piece.sides[1].Points,
+                    self.pieces[(y - 1, x)].sides[3].Points,
                 )
             if x != 0:
                 self.puzzle_score = self.puzzle_score + distance_squared_average(
-                    piece.sides[3].Points,
-                    self.pieces[(y, x - 1)].sides[1].Points,
+                    piece.sides[0].Points,
+                    self.pieces[(y, x - 1)].sides[2].Points,
                 )
 
         if showPuzzle:
@@ -161,15 +162,16 @@ class PuzzleSolve:
     def show_puzzle(self):
         """Show the puzzle image."""
         puzzle_image = self.generate_puzzle_image()
-        cv2.imshow("Puzzle", puzzle_image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        scale_piece(puzzle_image, "Puzzle", 0.5, True, True)
 
     def generate_puzzle_image(self):
         """Generate the puzzle image."""
         error_margin = 1.5
         puzzle_image = np.zeros(
-            (self.metadata.height * error_margin, self.metadata.width * error_margin),
+            (
+                int(self.metadata.height * error_margin),
+                int(self.metadata.width * error_margin),
+            ),
             dtype=np.uint8,
         )
 
