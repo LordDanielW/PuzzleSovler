@@ -133,10 +133,10 @@ def segment_edges_and_calculate_histograms(
 
 def filter_middle_peaks(piece, sample_points, localPeakIndicies):
     height, width = piece.shape[:2]
-    width_quarter = width // 4
-    width_three_quarters = 3 * width // 4
-    height_quarter = height // 4
-    height_three_quarters = 3 * height // 4
+    width_quarter = width * 3 // 8
+    width_three_quarters = 5 * width // 8
+    height_quarter = height * 3 // 8
+    height_three_quarters = 5 * height // 8
 
     filteredPeakIndicies = []
     for index in localPeakIndicies:
@@ -359,6 +359,7 @@ def segmentSides(
         )
 
     # Filter Middle Peaks
+    # filteredPeakindicies = localPeakindicies
     filteredPeakindicies = filter_middle_peaks(piece, sample_points, localPeakindicies)
     if debugVis:
         filtered_candidates = [
@@ -429,30 +430,28 @@ def segmentSides(
     else:
         thisPiece.isCorner = False
 
+    # Rotate Piece so side 0 is top
+    thisPiece.rotate_to_top()
+
     # Rotate Piece 4 times, append all images with edge points as contours, show all
     if debugVis:
         debugRots = []
-        debugRots.append(
-            draw_gradient_contours(
-                thisPiece.puzzle_piece,
-                thisPiece.sides[0].Points,
-                "Rot0",
-                False,
-                False,
-            )
-        )
 
-        for i in range(3):
-            thisPiece.rotate_piece_deep()
+        for i in range(4):
+            allPoints = []
+            allPoints += thisPiece.sides[0].Points
+            # for side in thisPiece.sides:
+            #     allPoints += side.Points
             debugRots.append(
                 draw_gradient_contours(
                     thisPiece.puzzle_piece,
-                    thisPiece.sides[0].Points,
+                    allPoints,
                     "Rot" + str(i + 1),
                     False,
                     False,
                 )
             )
+            thisPiece.rotate_piece_deep()
         show_all(debugRots, "Rotations", 5, 1, True, True)
 
     return thisPiece

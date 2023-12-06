@@ -3,7 +3,7 @@ import numpy as np
 
 # *** Note: don't inclue utilsLoad for circular dependency ***
 
-from utilsMath import distance_squared_average, rotate_image_easy
+from utilsMath import distance_squared_average, rotate_image_easy, rotate_points_list
 from utilsDraw import scale_piece
 
 
@@ -51,19 +51,20 @@ class PieceInfo:
         self.right_x = 0
         self.angle = 0
 
-    def rotate_quick(self):
-        self.sides = self.sides[-1:] + self.sides[:-1]
-        self.angle = (self.angle + 90) % 360
-        self.puzzle_piece = rotate_image_easy(
-            self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
-        )
+    # TODO: Validate this function
+    # def rotate_quick(self):
+    #     self.sides = self.sides[-1:] + self.sides[:-1]
+    #     self.angle = (self.angle + 90) % 360
+    #     self.puzzle_piece = rotate_image_easy(
+    #         self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
+    #     )
 
     def rotate_piece_deep(self):
         height, width = self.puzzle_piece.shape[:2]
 
         # Rotating edgePoints using rotate_points_list
         for side in self.sides:
-            side.Points = self.rotate_points_list(side.Points, width)
+            side.Points = rotate_points_list(side.Points, width, height)
 
         # Rotate start and end corner indices
         for side in self.sides:
@@ -78,11 +79,11 @@ class PieceInfo:
 
         # Rotate puzzle_contours_all and puzzle_sampled_contours
         self.puzzle_contours_all = [
-            self.rotate_points_list(contour, width)
+            rotate_points_list(contour, width, height)
             for contour in self.puzzle_contours_all
         ]
         self.puzzle_sampled_contours = [
-            self.rotate_points_list(contour, width)
+            rotate_points_list(contour, width, height)
             for contour in self.puzzle_sampled_contours
         ]
 
@@ -93,15 +94,40 @@ class PieceInfo:
         self.bottom_y = width - self.left_x
         self.right_x = self.bottom_y
 
-    # Utility method to rotate a list of points
-    def rotate_points_list(self, points_list, width):
-        rotated_points = []
-        for point in points_list:
-            x, y = point[0]
-            new_x = y
-            new_y = width - x
-            rotated_points.append(np.array([[new_x, new_y]]))
-        return rotated_points
+    def rotate_to_top(self):
+        # Find the side which should be the top
+        # max_x2_minus_yxAll = float("inf")
+        # top_side_index = 0
+
+        # for i, side in enumerate(self.sides):
+        #     x1, y1 = self.puzzle_sampled_contours[side.start_corner_index][0]
+        #     x2, y2 = self.puzzle_sampled_contours[side.end_corner_index][0]
+        #     x2_minus_yx = x2 - y2 - x1 - y1
+
+        #     if (x2_minus_yx) < max_x2_minus_yxAll:
+        #         top_side_index = i
+
+        # Identify the side with the minimum average y-value which will be considered the top side.
+        min_avg_y = float("inf")
+        top_side_index = -1
+
+        for i, side in enumerate(self.sides):
+            avg_y = np.mean([pt[0][1] for pt in side.Points])
+            if avg_y < min_avg_y:
+                min_avg_y = avg_y
+                top_side_index = i
+        print(f"Top side index: {top_side_index}")
+
+        # Rotate the piece until the identified top side is in the 0th index
+        counter = 0
+        while top_side_index != 0:
+            counter += 1
+
+            print(f"Rotating piece {counter} times")
+            # Rotate Histograms, Points, start_corner_index, end_corner_index
+            self.sides = self.sides[-1:] + self.sides[:-1]
+
+            top_side_index = (top_side_index + 1) % 4
 
 
 class PuzzleInfo:
@@ -142,7 +168,10 @@ class PuzzleSolve:
         if not isinstance(metadata, MetaData):
             raise ValueError("metadata must be an instance of MetaData class")
         self.metadata = metadata
-        self.pieces = {}  # Dictionary to hold pieces with keys as [y, x]
+        # self.pieces = {}  # Dictionary to hold pieces with keys as [y, x]
+        self.pieces = {
+            (y, x): None for y in range(metadata.yn - 1) for x in range(metadata.xn - 1)
+        }
         self.puzzle_score = 0  # Initialize puzzle score
 
     def add_piece(self, y, x, piece, showPuzzle=False):
@@ -173,18 +202,20 @@ class PuzzleSolve:
 
         # Update puzzle score
         if y == 0 and x == 0:
-            self.puzzle_score = 0
+            self.puzzle_score = 0.0
         else:
             if y != 0:
-                self.puzzle_score = self.puzzle_score + distance_squared_average(
-                    piece.sides[1].Points,
-                    self.pieces[(y - 1, x)].sides[3].Points,
-                )
-            if x != 0:
-                self.puzzle_score = self.puzzle_score + distance_squared_average(
+                y_dist_sqrd, _ = distance_squared_average(
                     piece.sides[0].Points,
-                    self.pieces[(y, x - 1)].sides[2].Points,
+                    self.pieces[(y - 1, x)].sides[2].Points,
                 )
+                self.puzzle_score = self.puzzle_score + y_dist_sqrd
+            if x != 0:
+                x_dist_sqrd, _ = distance_squared_average(
+                    piece.sides[3].Points,
+                    self.pieces[(y, x - 1)].sides[1].Points,
+                )
+                self.puzzle_score = self.puzzle_score + x_dist_sqrd
 
         if showPuzzle:
             self.show_puzzle()
@@ -192,6 +223,8 @@ class PuzzleSolve:
     def find_piece(self, search_piece):
         """Find and return the coordinates of a piece that matches the search_piece's piece_index."""
         for (y, x), piece in self.pieces.items():
+            if piece is None:
+                continue
             if piece.piece_Index == search_piece.piece_Index:
                 return (y, x)
         return None  # Return None if no matching piece is found
@@ -202,8 +235,7 @@ class PuzzleSolve:
         scale_piece(puzzle_image, "Puzzle", 0.5, True, True)
 
     def generate_puzzle_image(self):
-        """Generate the puzzle image."""
-        error_margin = 1.5
+        error_margin = 2.5
         puzzle_image = np.zeros(
             (
                 int(self.metadata.height * error_margin),
@@ -213,13 +245,38 @@ class PuzzleSolve:
         )
 
         for (y, x), piece in self.pieces.items():
-            piece: PieceInfo
-            # Create a mask where white pixels are 255 (or true) and others are 0 (or false)
-            add_piece = piece.puzzle_piece
+            if piece is None:
+                continue
 
+            add_piece = piece.puzzle_piece
             mask = add_piece == 255
-            # Use the mask to only copy the white pixels onto the solvedPuzzle
+
+            # Debugging shapes and coordinates
+            subarray_shape = puzzle_image[
+                piece.top_y : piece.bottom_y, piece.left_x : piece.right_x
+            ].shape
+            mask_shape = mask.shape
+            print(f"Subarray shape: {subarray_shape}, Mask shape: {mask_shape}")
+
+            # Ensure the shapes match before assignment
+            if subarray_shape == mask_shape:
+                puzzle_image[
+                    piece.top_y : piece.bottom_y, piece.left_x : piece.right_x
+                ][mask] = add_piece[mask]
+            else:
+                print("Mismatch in shapes detected")
+
+            # Debug: Check dimensions
+            print(f"Mask shape: {mask.shape}, Puzzle piece shape: {add_piece.shape}")
+            print(
+                f"Top_y: {piece.top_y}, Bottom_y: {piece.bottom_y}, Left_x: {piece.left_x}, Right_x: {piece.right_x}"
+            )
+            print(
+                f"Subarray shape: {puzzle_image[piece.top_y : piece.bottom_y, piece.left_x : piece.right_x].shape}"
+            )
+
             puzzle_image[piece.top_y : piece.bottom_y, piece.left_x : piece.right_x][
                 mask
             ] = add_piece[mask]
+
         return puzzle_image

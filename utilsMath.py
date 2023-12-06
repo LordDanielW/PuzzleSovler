@@ -107,3 +107,27 @@ def rotate_image(image, angle):
     cropped_image = rotated_image[box[0][1] : box[1][1], box[0][0] : box[1][0]]
 
     return cropped_image
+
+
+# Utility method to rotate a list of points
+def rotate_points_list(points_list, width, height):
+    rotated_points = []
+    for point in points_list:
+        # Check the structure of the point and unpack x, y coordinates accordingly
+        if isinstance(point, np.ndarray) and point.shape == (1, 2):
+            x, y = point[0][0], point[0][1]
+        elif isinstance(point, np.ndarray) and point.shape == (2,):
+            x, y = point[0], point[1]
+        elif isinstance(point, (list, tuple)) and len(point) == 2:
+            x, y = point
+        else:
+            print(point)
+            raise TypeError("Unexpected point structure in points_list")
+
+        # new_x = y
+        # new_y = width - x
+        new_x = height - y
+        new_y = x
+        rotated_points.append(np.array([[new_x, new_y]]))
+
+    return rotated_points
