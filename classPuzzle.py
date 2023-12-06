@@ -58,13 +58,50 @@ class PieceInfo:
             self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
         )
 
-    # TODO
     def rotate_piece_deep(self):
+        height, width = self.puzzle_piece.shape[:2]
+
+        # Rotating edgePoints using rotate_points_list
+        for side in self.sides:
+            side.Points = self.rotate_points_list(side.Points, width)
+
+        # Rotate start and end corner indices
+        for side in self.sides:
+            side.start_corner_index = (side.start_corner_index + 1) % 4
+            side.end_corner_index = (side.end_corner_index + 1) % 4
+
+        # Rotate Histograms, Points, start_corner_index, end_corner_index
+        self.sides = self.sides[-1:] + self.sides[:-1]
+
+        # Rotate puzzle piece image
+        self.puzzle_piece = cv2.rotate(self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE)
+
+        # Rotate puzzle_contours_all and puzzle_sampled_contours
+        self.puzzle_contours_all = [
+            self.rotate_points_list(contour, width)
+            for contour in self.puzzle_contours_all
+        ]
+        self.puzzle_sampled_contours = [
+            self.rotate_points_list(contour, width)
+            for contour in self.puzzle_sampled_contours
+        ]
+
+        # Update the angles and positions
         self.angle = (self.angle + 90) % 360
-        self.puzzle_piece = rotate_image_easy(
-            self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE
-        )
-        # TODO rerun segment piece
+        self.top_y = width - self.right_x
+        self.left_x = self.top_y
+        self.bottom_y = width - self.left_x
+        self.right_x = self.bottom_y
+
+    # Utility method to rotate a list of points
+    def rotate_points_list(self, points_list, width):
+        rotated_points = []
+        for point in points_list:
+            x, y = point[0]
+            new_x = y
+            new_y = width - x
+            rotated_points.append(np.array([[new_x, new_y]]))
+        return rotated_points
 
 
 class PuzzleInfo:

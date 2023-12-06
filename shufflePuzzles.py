@@ -38,7 +38,7 @@ def read_image(file_path):
     return img
 
 
-def find_contours(img):
+def find_contours(img, minSize=10):
     inverted = 255 - img
     # if debugVisuals:
     #     cv2.imshow("Inverted", inverted)
@@ -54,6 +54,9 @@ def find_contours(img):
 
     # Remove the largest contour (the background)
     contours_sorted.pop()
+
+    # Remove contours with fewer than 10 points
+    contours_sorted = [c for c in contours_sorted if len(c) >= minSize]
 
     return contours_sorted
 

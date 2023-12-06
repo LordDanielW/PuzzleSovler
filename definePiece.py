@@ -131,113 +131,25 @@ def segment_edges_and_calculate_histograms(
     return edgeHistograms, edgePoints
 
 
-# segments a piece into 4 sides.
-# returns sides as normalized histograms in CW order
-def segmentSides(
-    piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=4
-):
-    debugImgs = []
+def filter_middle_peaks(piece, sample_points, localPeakIndicies):
+    height, width = piece.shape[:2]
+    width_quarter = width // 4
+    width_three_quarters = 3 * width // 4
+    height_quarter = height // 4
+    height_three_quarters = 3 * height // 4
 
-    # Contour
-    contour = find_contour(piece, debugVis)
-
-    # Downsample
-    sample_points = contour[::downSampleFactor]
-    if debugVis:
-        debugImgs.append(
-            draw_gradient_contours(
-                piece, sample_points, "Downsampled Edge", False, False
-            )
-        )
-
-    # Angle differences
-    angle_differences = calculate_angle_differences(sample_points)
-
-    # these variable control window size for filtration and corner detection
-    # if the windowSize is increased, the peakHeight may need to be decreased and vice versa
-    windowSize = 3
-    minPeakHeight_deg = 10
-
-    # Circular window filter
-    angle_differences = circular_centered_window_filter(angle_differences, windowSize)
-
-    # Find Peaks
-    localPeakindicies = find_peaks_circular(
-        angle_differences, windowSize, minPeakHeight_deg, False
-    )
-    peakCandidates = [
-        sample_points[i] for i in localPeakindicies if i < len(sample_points)
-    ]
-    if debugVis:
-        debugImgs.append(
-            draw_gradient_contours(
-                piece, peakCandidates, "Peak Candidates", False, False
-            )
-        )
-
-    # Find Corners
-    finalCorners, finalCornerIndicies = determine_final_corners(
-        sample_points, localPeakindicies
-    )
-    if debugVis:
-        debugImgs.append(
-            draw_gradient_contours(piece, finalCorners, "Final Corners", False, False)
-        )
-
-    # Segment Edges
-    edgeHistograms, edgePoints = segment_edges_and_calculate_histograms(
-        sample_points,
-        angle_differences,
-        finalCornerIndicies,
-        cornerTrim,
-        flat_edge_tolerance,
-    )
-    if debugVis:
-        debugImgs.append(
-            draw_segmented_contours(piece, edgePoints, "Segmented Edges", False, False)
-        )
-        show_all(debugImgs, "Define Pieces", 5, 1, True, True)
-        for i, hist in enumerate(edgeHistograms):
-            # draw_gradient_contours(piece, edgePoints[i],"Edge Contour "+str(i))
-            simpleHistogram(hist, "edge " + str(i))
-
-    # Create PieceInfo object
-    thisPiece = PieceInfo()
-
-    # Define Sides
-    for i in range(4):
-        thisPiece.sides[i].side_Index = i
-        thisPiece.sides[i].Histogram = edgeHistograms[i]
-        thisPiece.sides[i].Points = edgePoints[i]
-        thisPiece.sides[i].start_corner_index = finalCornerIndicies[i]
-        thisPiece.sides[i].end_corner_index = finalCornerIndicies[(i + 1) % 4]
-        if (
-            np.all(edgeHistograms[i] == 0)
-            or np.sum(np.abs(edgeHistograms[i])) < flat_edge_tolerance
+    filteredPeakIndicies = []
+    for index in localPeakIndicies:
+        x, y = sample_points[index][0]
+        if not (width_quarter <= x <= width_three_quarters) and not (
+            height_quarter <= y <= height_three_quarters
         ):
-            thisPiece.sides[i].isEdge = True
-        else:
-            thisPiece.sides[i].isEdge = False
+            filteredPeakIndicies.append(index)
 
-    # Define Piece
-    thisPiece.puzzle_piece = piece
-    thisPiece.puzzle_contours_all = contour
-    thisPiece.puzzle_sampled_contours = sample_points
-
-    count_Flat = 0
-    for i in range(4):
-        if thisPiece.sides[i].isEdge:
-            count_Flat += 1
-            thisPiece.isEdge = True
-    if count_Flat == 2:
-        thisPiece.isCorner = True
-    else:
-        thisPiece.isCorner = False
-
-    return thisPiece
+    return filteredPeakIndicies
 
 
-def simpleHistogram(data, name="Simple Histogram"):
+def simpleHistogram(data, name="Simple Histogram", show=True):
     plt.figure(figsize=(10, 5))
     plt.plot(data, marker="o", linestyle="-")
     plt.title(name)
@@ -397,6 +309,153 @@ def shoelace_area(vertices):
         area += (x1 * y2) - (x2 * y1)
 
     return abs(area) / 2
+
+
+# segments a piece into 4 sides.
+# returns sides as normalized histograms in CW order
+def segmentSides(
+    piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=4
+):
+    debugImgs = []
+
+    # Contour
+    contour = find_contour(piece, debugVis)
+
+    # Downsample
+    sample_points = contour[::downSampleFactor]
+    if debugVis:
+        debugImgs.append(
+            draw_gradient_contours(
+                piece, sample_points, "Downsampled Edge", False, False
+            )
+        )
+
+    # Angle differences
+    angle_differences = calculate_angle_differences(sample_points)
+
+    # these variable control window size for filtration and corner detection
+    # if the windowSize is increased, the peakHeight may need to be decreased and vice versa
+    windowSize = 3
+    minPeakHeight_deg = 10
+
+    # Circular window filter
+    angle_differences = circular_centered_window_filter(angle_differences, windowSize)
+
+    # Plot the Integral
+    integral_of_angles = np.cumsum(angle_differences)
+    if debugVis:
+        simpleHistogram(integral_of_angles, "Integral of Angle Differences", False)
+
+    # Find Peaks
+    localPeakindicies = find_peaks_circular(
+        angle_differences, windowSize, minPeakHeight_deg, False
+    )
+    if debugVis:
+        peakCandidates = [
+            sample_points[i] for i in localPeakindicies if i < len(sample_points)
+        ]
+        debugImgs.append(
+            draw_gradient_contours(piece, peakCandidates, "Found Peaks", False, False)
+        )
+
+    # Filter Middle Peaks
+    filteredPeakindicies = filter_middle_peaks(piece, sample_points, localPeakindicies)
+    if debugVis:
+        filtered_candidates = [
+            sample_points[i] for i in filteredPeakindicies if i < len(sample_points)
+        ]
+        debugImgs.append(
+            draw_gradient_contours(
+                piece, filtered_candidates, "Filtered Peaks", False, False
+            )
+        )
+
+    # Find Corners
+    finalCorners, finalCornerIndicies = determine_final_corners(
+        sample_points, filteredPeakindicies
+    )
+    if debugVis:
+        debugImgs.append(
+            draw_gradient_contours(piece, finalCorners, "Final Corners", False, False)
+        )
+
+    # Segment Edges
+    edgeHistograms, edgePoints = segment_edges_and_calculate_histograms(
+        sample_points,
+        angle_differences,
+        finalCornerIndicies,
+        cornerTrim,
+        flat_edge_tolerance,
+    )
+    if debugVis:
+        debugImgs.append(
+            draw_segmented_contours(piece, edgePoints, "Segmented Edges", False, False)
+        )
+        show_all(debugImgs, "Define Pieces", 5, 1, True, True)
+        for i, hist in enumerate(edgeHistograms):
+            # draw_gradient_contours(piece, edgePoints[i],"Edge Contour "+str(i))
+            simpleHistogram(hist, "edge " + str(i))
+
+    # Create PieceInfo object
+    thisPiece = PieceInfo()
+
+    # Define Sides
+    for i in range(4):
+        thisPiece.sides[i].side_Index = i
+        thisPiece.sides[i].Histogram = edgeHistograms[i]
+        thisPiece.sides[i].Points = edgePoints[i]
+        thisPiece.sides[i].start_corner_index = finalCornerIndicies[i]
+        thisPiece.sides[i].end_corner_index = finalCornerIndicies[(i + 1) % 4]
+        if (
+            np.all(edgeHistograms[i] == 0)
+            or np.sum(np.abs(edgeHistograms[i])) < flat_edge_tolerance
+        ):
+            thisPiece.sides[i].isEdge = True
+        else:
+            thisPiece.sides[i].isEdge = False
+
+    # Define Piece
+    thisPiece.puzzle_piece = piece
+    thisPiece.puzzle_contours_all = contour
+    thisPiece.puzzle_sampled_contours = sample_points
+
+    count_Flat = 0
+    for i in range(4):
+        if thisPiece.sides[i].isEdge:
+            count_Flat += 1
+            thisPiece.isEdge = True
+    if count_Flat == 2:
+        thisPiece.isCorner = True
+    else:
+        thisPiece.isCorner = False
+
+    # Rotate Piece 4 times, append all images with edge points as contours, show all
+    if debugVis:
+        debugRots = []
+        debugRots.append(
+            draw_gradient_contours(
+                thisPiece.puzzle_piece,
+                thisPiece.sides[0].Points,
+                "Rot0",
+                False,
+                False,
+            )
+        )
+
+        for i in range(3):
+            thisPiece.rotate_piece_deep()
+            debugRots.append(
+                draw_gradient_contours(
+                    thisPiece.puzzle_piece,
+                    thisPiece.sides[0].Points,
+                    "Rot" + str(i + 1),
+                    False,
+                    False,
+                )
+            )
+        show_all(debugRots, "Rotations", 5, 1, True, True)
+
+    return thisPiece
 
 
 def main():
