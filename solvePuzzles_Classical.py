@@ -24,6 +24,51 @@ shuffledPath = "Puzzles/Shuffled/"
 solvedPath = "Puzzles/Solved/"
 
 
+def findBestDoubleMatches(piece3, piece0, pieces_to_compare):
+    piece3: PieceInfo
+    piece0: PieceInfo
+
+    reversed_histogram3 = np.array(piece3.sides[1].Histogram)[::-1]
+    inv_rev_hist3 = np.array(reversed_histogram3) * -1
+
+    reversed_histogram0 = np.array(piece0.sides[2].Histogram)[::-1]
+    inv_rev_hist0 = np.array(reversed_histogram0) * -1
+
+    pieces_to_compare: [PieceInfo]
+    all_side_matches = []
+
+    for piece in pieces_to_compare:
+        piece: PieceInfo
+        for side_index in range(4):
+            side3 = piece.sides[side_index]
+            side0 = piece.sides[(side_index + 1) % 3]
+            side3: SideInfo
+            side0: SideInfo
+
+            dis_sqrd3, shift = distance_squared_average(
+                np.array(inv_rev_hist3),
+                np.array(side3.Histogram),
+            )
+
+            dis_sqrd0, shift = distance_squared_average(
+                np.array(inv_rev_hist0),
+                np.array(side0.Histogram),
+            )
+
+            side_match = SideMatch()
+            side_match.piece_index = piece.piece_Index
+            side_match.side_index = side_index
+            side_match.histogram_score = dis_sqrd3 + dis_sqrd0
+            side_match.histogram_shift = shift
+            all_side_matches.append(side_match)
+
+    sorted_side_matches = sorted(
+        all_side_matches, key=lambda match: match.histogram_score
+    )
+
+    return sorted_side_matches
+
+
 def findBestMatches(
     current_piece,
     side_Index,
@@ -49,7 +94,7 @@ def findBestMatches(
                 dis_sqrd, shift = distance_squared_average(inv_rev_hist, side.Histogram)
                 side_match = SideMatch()
                 side_match.piece_index = piece.piece_Index
-                side_match.side_index = side.side_Index
+                side_match.side_index = side_index
                 side_match.histogram_score = dis_sqrd
                 side_match.histogram_shift = shift
                 all_side_matches.append(side_match)
@@ -59,8 +104,8 @@ def findBestMatches(
     )
 
     if debugVis:
-        # Plot for each of the top 5 matches
-        for i, match in enumerate(sorted_side_matches[:5]):
+        # Plot for each of the top 3 matches
+        for i, match in enumerate(sorted_side_matches[:3]):
             matched_piece = next(
                 (p for p in pieces_to_compare if p.piece_Index == match.piece_index),
                 None,
@@ -68,6 +113,7 @@ def findBestMatches(
             matched_side = (
                 matched_piece.sides[match.side_index] if matched_piece else None
             )
+
             if matched_side:
                 plot_all(
                     inv_rev_hist,
@@ -116,132 +162,135 @@ def find_best_match_for_side(side, pieces, max_matches=3):
     return matches
 
 
-def findBestPuzzle(puzzleSolve, piece, pieces_left):
-    puzzleSolve: PuzzleSolve
-    piece: PieceInfo
-    pieces_left: [PieceInfo]
+def find_best_match_for_side2(side, current_piece, pieces, max_matches=3):
+    matches = []
+    for side_match in side.side_matches:
+        if len(matches) >= max_matches:
+            break  # Stop when we reach the maximum number of matches
 
-    returnSolved = []
+        for piece in pieces:
+            if piece.piece_Index == side_match.piece_index:
+                matches.append((piece, side_match))
+                break  # Found a match for this side match, move to the next
 
-    if not pieces_left:
-        return puzzleSolve
+    for piece, side_match in matches:
+        piece: PieceInfo
+        side_match: SideMatch
 
-    y_piece_index, x_piece_index = puzzleSolve.find_piece(piece)
+        combine_images_left_right(
+            current_piece.puzzle_piece,
+            current_piece.corners,
+            piece.puzzle_piece,
+            piece.corners,
+        )
 
-    # Place piece for side 2 (bottom)
-    if not piece.sides[2].isEdge:
-        matches = find_best_match_for_side(piece.sides[2], pieces_left)
+    return matches
 
-        for best_match_piece, best_match in matches:
-            y_pieces_left = pieces_left.copy()
-            y_pieces_left.remove(best_match_piece)
-            best_match_piece.rotate_sides()  # Rotate to align the matched side correctly
-            while best_match_piece.sides[0].side_Index != best_match.side_index:
-                best_match_piece.rotate_sides()
 
-            # Add the piece to the puzzle matrix and update the score
-            new_y_piece_index = y_piece_index + 1
-            puzzleSolve.add_piece(new_y_piece_index, x_piece_index, best_match_piece)
-            puzzleSolve.puzzle_score += best_match.histogram_score
+def find_corners(piece_img):
+    # Find the coordinates of all white pixels
+    y_coords, x_coords = np.where(piece_img == 255)
+    white_pixels = np.column_stack((x_coords, y_coords))
 
-            # Recursive call with the next piece
-            new_puzzle_solve = findBestPuzzle(
-                puzzleSolve, best_match_piece, y_pieces_left
-            )
-            if new_puzzle_solve:
-                returnSolved.append(new_puzzle_solve)
-
-    # Place piece for side 1 (right)
-    if not piece.sides[1].isEdge:
-        matches = find_best_match_for_side(piece.sides[1], pieces_left)
-
-        for best_match_piece, best_match in matches:
-            x_pieces_left = pieces_left.copy()
-            x_pieces_left.remove(best_match_piece)
-            best_match_piece.rotate_sides()  # Rotate to align the matched side correctly
-            while best_match_piece.sides[3].side_Index != best_match.side_index:
-                best_match_piece.rotate_sides()
-
-            # Add the piece to the puzzle matrix and update the score
-            new_x_piece_index = x_piece_index + 1
-            puzzleSolve.add_piece(y_piece_index, new_x_piece_index, best_match_piece)
-            puzzleSolve.puzzle_score += best_match.histogram_score
-
-            # Recursive call with the next piece
-            new_puzzle_solve = findBestPuzzle(
-                puzzleSolve, best_match_piece, x_pieces_left
-            )
-            if new_puzzle_solve:
-                returnSolved.append(new_puzzle_solve)
-
-    if returnSolved:
-        # Return the PuzzleSolve instance with the smallest puzzle_score
-        return min(returnSolved, key=lambda ps: ps.puzzle_score)
-    else:
-        # Return None if no further solutions were found
+    # If there are no white pixels, return None or handle as needed
+    if white_pixels.size == 0:
         return None
 
+    # Calculate the distance of each white pixel to the four corners of the image
+    top_left_dist = np.sum((white_pixels - [0, 0]) ** 2, axis=1)
+    top_right_dist = np.sum((white_pixels - [piece_img.shape[1], 0]) ** 2, axis=1)
+    bottom_right_dist = np.sum(
+        (white_pixels - [piece_img.shape[1], piece_img.shape[0]]) ** 2, axis=1
+    )
+    bottom_left_dist = np.sum((white_pixels - [0, piece_img.shape[0]]) ** 2, axis=1)
 
-def findAPuzzle(puzzleSolve, last_piece, pieces_left):
-    puzzleSolve: PuzzleSolve
-    last_piece: PieceInfo
-    pieces_left: [PieceInfo]
+    # Identify the white pixel closest to each corner
+    top_left = white_pixels[np.argmin(top_left_dist)]
+    top_right = white_pixels[np.argmin(top_right_dist)]
+    bottom_right = white_pixels[np.argmax(bottom_right_dist)]
+    bottom_left = white_pixels[np.argmin(bottom_left_dist)]
 
-    if not pieces_left:
-        return puzzleSolve
+    # Create a contour array
+    corners = np.array([top_left, top_right, bottom_right, bottom_left], dtype=np.int32)
 
-    # Assuming the last_piece is placed at (0,0) initially
-    if not puzzleSolve.pieces:
-        puzzleSolve.add_piece(0, 0, last_piece)
-        puzzleSolve.update_score(puzzleSolve.puzzle_score + 100)
-
-    last_x, last_y = puzzleSolve.find_piece(last_piece)
-    # width, height = puzzleSolve.width, puzzleSolve.height
-    width, height = 8, 9
-
-    # Try placing pieces to the right and bottom of the last placed piece
-    for w in range(width):
-        for h in range(height):
-            if w == 0 and h == 0:
-                continue
-            puzzleSolve.add_piece(h, w, pieces_left[0])
-            puzzleSolve.update_score(puzzleSolve.puzzle_score + 100)
-            pieces_left.remove(pieces_left[0])
-
-    return puzzleSolve
+    return corners.reshape((-1, 1, 2))
 
 
-def space_puzzle(puzzleSolve):
-    puzzleSolve: PuzzleSolve
+def combine_images_left_right(img1, corners1, img2, corners2):
+    # Find the top-rightmost white pixel in img1 and the top-leftmost white pixel in img2
+    # corners1 = find_corners(img1)
+    # corners2 = find_corners(img2)
 
-    # Find the maximum extent of the puzzle
-    max_y = max(y for (y, x) in puzzleSolve.pieces.keys())
-    max_x = max(x for (y, x) in puzzleSolve.pieces.keys())
+    debugImgs = []
 
-    for y in range(max_y + 1):
-        for x in range(max_x + 1):
-            if (y, x) in puzzleSolve.pieces:
-                current_piece = puzzleSolve.pieces[(y, x)]
-                left_x, top_y = 0, 0
+    debugImgs.append(
+        draw_gradient_contours(img1, [corners1[1]], "Corners", False, False)
+    )
+    debugImgs.append(
+        draw_gradient_contours(img2, [corners2[0]], "Corners", False, False)
+    )
 
-                # Check for a piece to the left
-                if (y, x - 1) in puzzleSolve.pieces:
-                    left_neighbor = puzzleSolve.pieces[(y, x - 1)]
-                    left_x = left_neighbor.right_x
+    show_all(debugImgs, "Image 1 and 2", 3, 1, True, True)
 
-                # Check for a piece above
-                if (y - 1, x) in puzzleSolve.pieces:
-                    top_neighbor = puzzleSolve.pieces[(y - 1, x)]
-                    top_y = top_neighbor.bottom_y
+    print(f"Corners 1: {corners1[1]}")
+    print(f"Corners 2: {corners2[0]}")
 
-                # Calculate the bounding rectangle for each contour
-                _, _, width, height = cv2.boundingRect(current_piece.puzzle_piece)
+    # Calculate the offset for placing img2 next to img1
+    offset_x = corners1[1][0][0] + 1 - corners2[0][0][0]
+    offset_y = corners1[1][0][1] - corners2[0][0][1]
+    y1_diff = 0
+    y2_diff = 0
+    if offset_y < 0:
+        y1_diff = abs(offset_y)
+    else:
+        y2_diff = abs(offset_y)
 
-                # Set right_x and bottom_y for the current piece
-                current_piece.left_x = left_x
-                current_piece.top_y = top_y
-                current_piece.right_x = left_x + width
-                current_piece.bottom_y = top_y + height
+    print(f"Offset X: {offset_x}")
+    print(f"Y1 Diff: {y1_diff}")
+    print(f"Y2 Diff: {y2_diff}")
+
+    # Create a new image large enough to hold both images
+    combined_height = max(img1.shape[0] + y1_diff, img2.shape[0] + y2_diff)
+    combined_width = offset_x + img2.shape[1]
+    combined_img = np.zeros((combined_height, combined_width), dtype=img1.dtype)
+
+    # Place img1 in the combined image
+    combined_img[y1_diff : y1_diff + img1.shape[0], : img1.shape[1]] = img1
+
+    # Place img2 in the combined image at the calculated offset
+    mask = img2 == 255
+
+    combined_img[y2_diff : y2_diff + img2.shape[0], offset_x:combined_width][
+        mask
+    ] = img2[mask]
+
+    # # Calculate the region where img2 is placed in the combined image
+    # img2_region = combined_img[
+    #     y2_diff : y2_diff + img2.shape[0], offset_x:combined_width
+    # ]
+
+    # # Count overlapping white pixels
+    # # The overlapping region is where img1 and img2 potentially intersect
+    # # We consider a pixel as overlapping if it is white (255) in both images
+    # overlap = np.sum(
+    #     (img1[y1_diff : y1_diff + img2.shape[0], : img2.shape[1]] == 255)
+    #     & (img2_region == 255)
+    # )
+
+    # print(f"Number of overlapping white pixels: {overlap}")
+
+    # Distance squared between bottom-right corner of img1 and bottom-left corner of img2
+    distance_squared = (corners1[2][0][0] - corners2[3][0][0] - offset_x) ** 2 + (
+        (corners1[2][0][1] + y1_diff) - (corners2[3][0][1] + y2_diff)
+    ) ** 2
+
+    img_list = [img1, img2, combined_img]
+    show_all(img_list, "Combined Images", 3, 1, True, True)
+
+    print(f"Overlap: {overlap}")
+    print(f"Distance Squared: {distance_squared}")
+
+    return overlap, distance_squared
 
 
 def generate_solution_CSV(puzzleSolve, filename):
@@ -300,7 +349,7 @@ def verify_edges_corners(corner_pieces, edge_pieces):
                 e_piece.puzzle_piece, contours, "edge_piece", False, False
             )
         )
-    show_all(edge_images, "Edge Pieces", 5, 0.5, True, True)
+    show_all(edge_images, "Edge Pieces", 5, 0.5, False, True)
 
 
 def solve_middle_pieces(puzzleSolve, middle_pieces, debugVis=False):
@@ -309,106 +358,106 @@ def solve_middle_pieces(puzzleSolve, middle_pieces, debugVis=False):
         for x in range(1, puzzleSolve.metadata.xn - 1):
             current_piece_above = puzzleSolve.pieces[(y - 1, x)]
             current_piece_left = puzzleSolve.pieces[(y, x - 1)]
+            current_piece_above: PieceInfo
+            current_piece_left: PieceInfo
 
-            # Find the best match for the bottom side of the piece above and the right side of the piece to the left
-            above_side_matches, _ = findBestMatches(
-                current_piece_above, 2, middle_pieces, [0], False, 0
+            # Match Top and Left sides
+            current_piece_left.sides[1].side_matches = findBestDoubleMatches(
+                current_piece_left, current_piece_above, middle_pieces
             )
-            left_side_matches, _ = findBestMatches(
-                current_piece_left, 1, middle_pieces, [3], False, 0
-            )
 
-            # Find the best matching piece that matches both above and left conditions
-            best_match_piece = None
-            for above_match in above_side_matches:
-                for left_match in left_side_matches:
-                    if above_match.piece_index == left_match.piece_index:
-                        best_match_piece = next(
-                            (
-                                p
-                                for p in middle_pieces
-                                if p.piece_Index == above_match.piece_index
-                            ),
-                            None,
-                        )
-                        break
-                if best_match_piece:
-                    break
+            if not current_piece_left.sides[1]:
+                raise Exception("No match found for middle piece.")
 
-            # If a match is found, rotate and add the piece
-            if best_match_piece:
-                # Rotate the piece to align correctly with the pieces above and to the left
-                while best_match_piece.sides[0].side_Index != above_match.side_index:
-                    best_match_piece.rotate_piece_deep()
-                while best_match_piece.sides[3].side_Index != left_match.side_index:
-                    best_match_piece.rotate_piece_deep()
+            # Find best match for side[1] of current piece
+            best_match_piece, best_match = find_best_match_for_side(
+                current_piece_left.sides[1], middle_pieces, 1
+            )[0]
 
-                # Add the piece to the puzzle matrix
-                puzzleSolve.add_piece(y, x, best_match_piece, debugVis)
+            # Rotate the piece to match the top and left sides
+            for _ in range(3 - best_match.side_index):
+                best_match_piece.rotate_piece_deep()
 
-                # Remove the piece from the middle pieces list
-                middle_pieces.remove(best_match_piece)
+            # Add the piece to the puzzle matrix
+            puzzleSolve.add_piece(y, x, best_match_piece, debugVis)
+
+            # Remove the piece from the middle pieces list
+            middle_pieces.remove(best_match_piece)
 
     return puzzleSolve
 
 
-def solve_edge_pieces(puzzleSolve, current_piece, edge_pieces, debugVis=False):
-    # Grab all edges align them to edge = 0
+def solve_edge_pieces(
+    puzzleSolve, current_piece, edge_pieces, edge_index, debugVis=False
+):
+    # The indexes for sides that are edges in corner pieces, in clockwise order starting from top-left
+    edge_compares = [(1, 3), (2, 0), (1, 3), (2, 0)]
+    eComp = edge_compares[edge_index]
+    y_add = 0 if edge_index == 0 or edge_index == 2 else 1
+    x_add = 0 if edge_index == 1 or edge_index == 3 else 1
+
+    t_range = puzzleSolve.metadata.xn - 2 if x_add == 1 else puzzleSolve.metadata.yn - 2
+
+    # Grab all edges align them to edge = edge_index
     t_edges = []
     for edge_piece in edge_pieces:
         edge_piece: PieceInfo
-        while not (edge_piece.sides[0].isEdge):
+        while not (edge_piece.sides[edge_index].isEdge):
             edge_piece.rotate_piece_deep()
-        aligned_edges.append(edge_piece)
+        t_edges.append(edge_piece)
 
-    edge_images = []
-    for e_piece in aligned_edges:
-        contours = []
-        for side in e_piece.sides:
-            if side.isEdge:
-                contours.append(side.Points)
-        edge_images.append(
-            draw_segmented_contours(
-                e_piece.puzzle_piece, contours, "edge_piece", False, False
+    if debugVis and edge_index == 0:
+        edge_images = []
+        for e_piece in t_edges:
+            contours = []
+            contours.append(e_piece.sides[eComp[1]].Points)
+            edge_images.append(
+                draw_segmented_contours(
+                    e_piece.puzzle_piece, contours, "edge_piece", False, False
+                )
             )
-        )
-    if debugVis:
         show_all(edge_images, "Edge Pieces", 5, 0.5, True, True)
 
-    # Solve Top Edge
-    current_piece = current_piece
-    for _ in range(puzzleSolve.metadata.xn - 2):
-        # Find best matches for the current piece's right side
-        current_piece.sides[1].side_matches, _ = findBestMatches(
+    # Solve Edge
+    for i in range(t_range):
+        show_debug = i == 0 and debugVis and edge_index == 0
+        # Find best matches for the current piece
+        current_piece.sides[eComp[0]].side_matches, _ = findBestMatches(
             current_piece,
-            1,
-            aligned_edges,
-            [3],
-            False,
+            eComp[0],
+            t_edges,
+            [eComp[1]],
+            show_debug,
             0,
         )
 
         # If there's no match found, break the loop
-        if not current_piece.sides[1].side_matches:
-            break
+        if not current_piece.sides[eComp[0]].side_matches:
+            raise ValueError(f"No matches for piece {current_piece.piece_name}.")
 
         # Find best match for side[1] of current piece
+
+        # best_match_piece, _ = find_best_match_for_side2(
+        #     current_piece.sides[eComp[0]], current_piece, t_edges, 3
+        # )[0]
+
         best_match_piece, _ = find_best_match_for_side(
-            current_piece.sides[1], aligned_edges, 1
+            current_piece.sides[eComp[0]], t_edges, 3
         )[0]
 
         # Add the best matching piece to the puzzle matrix on the right side
+        last_y, last_x = puzzleSolve.find_piece(current_piece)
         puzzleSolve.add_piece(
-            0, puzzleSolve.find_piece(current_piece)[1] + 1, best_match_piece, debugVis
+            last_y + y_add, last_x + x_add, best_match_piece, debugVis
         )
 
         # Remove the best matching piece from the list of pieces to compare
-        aligned_edges.remove(best_match_piece)
+        t_edges.remove(best_match_piece)
 
         # Update the current piece to the best matching piece for the next iteration
         current_piece = best_match_piece
 
-    return puzzleSolve, current_piece, edge_pieces
+    return puzzleSolve, current_piece, t_edges
 
 
 def solve_corner_piece(
@@ -463,6 +512,8 @@ def solve_corner_piece(
     # Add the best matching piece to the puzzle matrix on the right side
     puzzleSolve.add_piece(tCoord[0], tCoord[1], best_match_piece, debugVis)
 
+    current_piece = best_match_piece
+
     # Remove the best matching piece from the list of pieces to compare
     corner_pieces.remove(best_match_piece)
 
@@ -480,36 +531,14 @@ def solve_puzzle(puzzle_name, debugVis=True):
 
     # Define All Pieces
     for i, raw_piece in enumerate(raw_pieces):
-        # For Debug i == 0
-        piece: PieceInfo = segmentSides(raw_piece, False, 4, 3)
+        t_Debug = debugVis and i == 0
+        piece: PieceInfo = segmentSides(raw_piece, t_Debug, 4, 3, 18)
         piece.piece_Index = i
         piece.piece_name = piecesInfo[i]["piece_name"]
         # piece.puzzle_piece = rotate_image_easy(piece.puzzle_piece, 1)
         puzzle.pieces.append(piece)
         if i > 0:
             pieces_to_compare.append(piece)
-
-    count_matches = 0
-    # Find matches for Sides
-    for i, tPiece in enumerate(puzzle.pieces[:-1]):
-        tPiece: PieceInfo
-        for tSide in tPiece.sides:
-            tSide: SideInfo
-            if tSide.isEdge == False:
-                # For Debug i == 0
-                tSide.side_matches, count_matches = findBestMatches(
-                    tPiece,
-                    tSide.side_Index,
-                    pieces_to_compare,
-                    [0, 1, 2, 3],
-                    False,
-                    count_matches,
-                )
-
-        pieces_to_compare.pop(0)
-
-    # Verify Matches
-    print("Matches Found: ", count_matches)
 
     corner_pieces: [PieceInfo] = []
     edge_pieces: [PieceInfo] = []
@@ -524,9 +553,13 @@ def solve_puzzle(puzzle_name, debugVis=True):
         else:
             middle_pieces.append(piece)
 
-    # # Verify Edges / Corners
-    # if debugVis:
-    #     verify_edges_corners(corner_pieces, edge_pieces)
+    # Verify Edges / Corners
+    if debugVis:
+        verify_edges_corners(corner_pieces, edge_pieces)
+        middle_imgs = []
+        for m_piece in middle_pieces:
+            middle_imgs.append(m_piece.puzzle_piece)
+        show_all(middle_imgs, "Middle Pieces", 5, 0.5, True, True)
 
     # Lets Solve a Puzzle
     puzzleSolve = PuzzleSolve(meta_data)
@@ -546,169 +579,65 @@ def solve_puzzle(puzzle_name, debugVis=True):
 
     current_piece = first_piece
 
-    # debugVis = True
-
-    # Grab all edges align them to edge = 0
-    aligned_edges = []
-    for edge_piece in edge_pieces:
-        edge_piece: PieceInfo
-        while not (edge_piece.sides[0].isEdge):
-            edge_piece.rotate_piece_deep()
-        aligned_edges.append(edge_piece)
-
-    edge_images = []
-    for e_piece in aligned_edges:
-        contours = []
-        for side in e_piece.sides:
-            if side.isEdge:
-                contours.append(side.Points)
-        edge_images.append(
-            draw_segmented_contours(
-                e_piece.puzzle_piece, contours, "edge_piece", False, False
-            )
-        )
-    if debugVis:
-        show_all(edge_images, "Edge Pieces", 5, 0.5, True, True)
+    # Copy the edge pieces to a new list
+    # aligned_edges = [edge_piece for edge_piece in edge_pieces]
 
     # Solve Top Edge
-
-    puzzleSolve, current_piece, aligned_edges = solve_edge_pieces(
-        puzzleSolve, current_piece, aligned_edges, debugVis
+    puzzleSolve, current_piece, edge_pieces = solve_edge_pieces(
+        puzzleSolve, current_piece, edge_pieces, 0, debugVis
     )
-
-    current_piece = first_piece
-    for _ in range(puzzleSolve.metadata.xn - 2):
-        # Find best matches for the current piece's right side
-        current_piece.sides[1].side_matches, _ = findBestMatches(
-            current_piece,
-            1,
-            aligned_edges,
-            [3],
-            False,
-            0,
-        )
-
-        # If there's no match found, break the loop
-        if not current_piece.sides[1].side_matches:
-            break
-
-        # Find best match for side[1] of current piece
-        best_match_piece, _ = find_best_match_for_side(
-            current_piece.sides[1], aligned_edges, 1
-        )[0]
-
-        # Add the best matching piece to the puzzle matrix on the right side
-        puzzleSolve.add_piece(
-            0, puzzleSolve.find_piece(current_piece)[1] + 1, best_match_piece, debugVis
-        )
-
-        # Remove the best matching piece from the list of pieces to compare
-        aligned_edges.remove(best_match_piece)
-
-        # Update the current piece to the best matching piece for the next iteration
-        current_piece = best_match_piece
 
     # Solve Top Right Corner
     puzzleSolve, current_piece, corner_pieces = solve_corner_piece(
         puzzleSolve, current_piece, corner_pieces, 1, debugVis
     )
+    top_right_corner = current_piece
 
     # Solve Left Edge
-    debugVis = True
-    # Rotate all aligned edges so that the edge is on sides[1]
-    for edge_piece in aligned_edges:
-        while not (edge_piece.sides[3].isEdge):
-            edge_piece.rotate_piece_deep()
-
     current_piece = first_piece
-    for _ in range(puzzleSolve.metadata.yn - 2):
-        # Find best matches for the current piece's right side
-        current_piece.sides[2].side_matches, _ = findBestMatches(
-            current_piece,
-            1,
-            aligned_edges,
-            [0],
-            False,
-            0,
-        )
-
-        # If there's no match found, break the loop
-        if not current_piece.sides[2].side_matches:
-            break
-
-        # Find best match for side[1] of current piece
-        best_match_piece, _ = find_best_match_for_side(
-            current_piece.sides[2], aligned_edges, 1
-        )[0]
-
-        # Add the best matching piece to the puzzle matrix on the right side
-        puzzleSolve.add_piece(
-            puzzleSolve.find_piece(current_piece)[0] + 1,
-            0,
-            best_match_piece,
-            debugVis,
-        )
-
-        # Remove the best matching piece from the list of pieces to compare
-        aligned_edges.remove(best_match_piece)
-
-        # Update the current piece to the best matching piece for the next iteration
-        current_piece = best_match_piece
+    puzzleSolve, current_piece, edge_pieces = solve_edge_pieces(
+        puzzleSolve, current_piece, edge_pieces, 3, debugVis
+    )
 
     # Solve Middle Pieces
     puzzleSolve = solve_middle_pieces(puzzleSolve, middle_pieces, debugVis)
 
-    # Solve Bottom Right Corner
+    # Solve Bottom Left Corner
     puzzleSolve, current_piece, corner_pieces = solve_corner_piece(
         puzzleSolve, current_piece, corner_pieces, 3, debugVis
     )
 
-    # puzzleSolve = PuzzleSolve()
-    # last_piece = corner_pieces[0]
-    # # pieces_left = []
-    # pieces_left = puzzle.pieces
-    # pieces_left.remove(last_piece)
-    # a_solution = findAPuzzle(puzzleSolve, last_piece, pieces_left)
-    # space_puzzle(a_solution)
-    # generate_solution_CSV(a_solution, "Puzzles\Shuffled\jigsaw1\puzzle_placement.csv")
+    # Solve Bottom Edge
+    puzzleSolve, current_piece, edge_pieces = solve_edge_pieces(
+        puzzleSolve, current_piece, edge_pieces, 2, debugVis
+    )
 
-    # good_solutions = []
-    # best_solution = None
-    # for corner_piece in corner_pieces:
-    #     puzzleSolve = PuzzleSolve()
+    # Solve the Right Edge
+    current_piece = top_right_corner
+    puzzleSolve, current_piece, edge_pieces = solve_edge_pieces(
+        puzzleSolve, current_piece, edge_pieces, 1, debugVis
+    )
 
-    #     # Orient the corner piece correctly
-    #     counter = 0
-    #     while not (corner_piece.sides[3].isEdge and corner_piece.sides[0].isEdge):
-    #         if counter == 4:
-    #             print("Broken Corner")
-    #             break
-    #         corner_piece.rotate_sides()
-    #         counter += 1
+    # Solve Bottom Right Corner
+    puzzleSolve, current_piece, corner_pieces = solve_corner_piece(
+        puzzleSolve, current_piece, corner_pieces, 2, True
+    )
 
-    #     puzzleSolve.add_piece(0, 0, corner_piece)
-    #     puzzle_pieces_left = puzzle.pieces
-    #     puzzle_pieces_left.remove(corner_piece)
-    #     bestSolve = findBestPuzzle(puzzleSolve, corner_piece, puzzle_pieces_left)
-
-    #     if bestSolve:
-    #         good_solutions.append(bestSolve)
-
-    # if good_solutions:
-    #     best_solution = min(good_solutions, key=lambda ps: ps.puzzle_score)
-
-    # space_puzzle(best_solution)
-    # generate_solution_CSV(best_solution, "Puzzles\Shuffled\jigsaw1\solution.csv")
+    # Print Puzzle Score
+    print(f"Puzzle Error: {puzzleSolve.puzzle_score}")
+    generate_solution_CSV(
+        puzzleSolve, f"Puzzles/Solved/{puzzle_name}_classic_solved.csv"
+    )
 
 
 # Example usage
-puzzle_name = "jigsaw1"  # replace with actual puzzle name
-sorted_pieces = solve_puzzle(puzzle_name, False)
+# puzzle_name = "jigsaw3"  # replace with actual puzzle name
+# sorted_pieces = solve_puzzle(puzzle_name, True)
 
-# # Loop through each puzzle directory in shuffledPath
-# for puzzle_folder in os.listdir(shuffledPath):
-#     puzzle_folder_path = os.path.join(shuffledPath, puzzle_folder)
-#     # Check if it's a directory
-#     if os.path.isdir(puzzle_folder_path):
-#         print(f"Solving puzzle: {puzzle_folder}")
-#         sorted_pieces = solve_puzzle(puzzle_folder)
+# Loop through each puzzle directory in shuffledPath
+for i, puzzle_folder in enumerate(os.listdir(shuffledPath)):
+    puzzle_folder_path = os.path.join(shuffledPath, puzzle_folder)
+    # Check if it's a directory
+    if os.path.isdir(puzzle_folder_path):
+        print(f"Solving puzzle: {puzzle_folder}")
+        sorted_pieces = solve_puzzle(puzzle_folder, i == 0)

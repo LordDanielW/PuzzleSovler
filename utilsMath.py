@@ -111,6 +111,7 @@ def rotate_image(image, angle):
 
 # Utility method to rotate a list of points
 def rotate_points_list(points_list, width, height):
+    # print(f"Type of points_list: {type(points_list)}")
     rotated_points = []
     for point in points_list:
         # Check the structure of the point and unpack x, y coordinates accordingly
@@ -129,5 +130,7 @@ def rotate_points_list(points_list, width, height):
         new_x = height - y
         new_y = x
         rotated_points.append(np.array([[new_x, new_y]]))
+
+        # print(f"Type of rotated_points: {type(rotated_points)}")
 
     return rotated_points

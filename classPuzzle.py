@@ -3,7 +3,11 @@ import numpy as np
 
 # *** Note: don't inclue utilsLoad for circular dependency ***
 
-from utilsMath import distance_squared_average, rotate_image_easy, rotate_points_list
+from utilsMath import (
+    distance_squared_average,
+    rotate_image_easy,
+    rotate_points_list,
+)
 from utilsDraw import scale_piece
 
 
@@ -17,12 +21,9 @@ class SideMatch:
 
 class SideInfo:
     def __init__(self):
-        self.side_Index = 0
         self.Histogram = []
         self.Points = []
         self.isEdge = False
-        self.start_corner_index = 0
-        self.end_corner_index = 0
         self.side_matches = [SideMatch()]
 
 
@@ -41,6 +42,7 @@ class PieceInfo:
         self.puzzle_piece = []
         self.puzzle_contours_all = []
         self.puzzle_sampled_contours = []
+        self.corners = []
 
         self.isCorner = False
         self.isEdge = False
@@ -50,6 +52,17 @@ class PieceInfo:
         self.bottom_y = 0
         self.right_x = 0
         self.angle = 0
+
+    # def get_corner_points(self):
+    #     corners = []
+    #     for side in self.sides:
+    #         # Check if the index is within the bounds of puzzle_sampled_contours
+    #         # if 0 <= side.start_corner_index < len(self.puzzle_sampled_contours):
+    #         corners.append(self.puzzle_sampled_contours[side.start_corner_index])
+    #         # else:
+    #         #     corners.append(None)  # Append None if index is out of bounds
+
+    #     return corners
 
     # TODO: Validate this function
     # def rotate_quick(self):
@@ -66,26 +79,22 @@ class PieceInfo:
         for side in self.sides:
             side.Points = rotate_points_list(side.Points, width, height)
 
-        # Rotate start and end corner indices
-        for side in self.sides:
-            side.start_corner_index = (side.start_corner_index + 1) % 4
-            side.end_corner_index = (side.end_corner_index + 1) % 4
-
         # Rotate Histograms, Points, start_corner_index, end_corner_index
         self.sides = self.sides[-1:] + self.sides[:-1]
 
         # Rotate puzzle piece image
         self.puzzle_piece = cv2.rotate(self.puzzle_piece, cv2.ROTATE_90_CLOCKWISE)
 
-        # Rotate puzzle_contours_all and puzzle_sampled_contours
-        self.puzzle_contours_all = [
-            rotate_points_list(contour, width, height)
-            for contour in self.puzzle_contours_all
-        ]
-        self.puzzle_sampled_contours = [
-            rotate_points_list(contour, width, height)
-            for contour in self.puzzle_sampled_contours
-        ]
+        # Rotate puzzle point lists
+        self.puzzle_contours_all = rotate_points_list(
+            self.puzzle_contours_all, width, height
+        )
+        self.puzzle_sampled_contours = rotate_points_list(
+            self.puzzle_sampled_contours, width, height
+        )
+
+        self.corners = rotate_points_list(self.corners, width, height)
+        self.corners = self.corners[-1:] + self.corners[:-1]
 
         # Update the angles and positions
         self.angle = (self.angle + 90) % 360
@@ -95,18 +104,6 @@ class PieceInfo:
         self.right_x = self.bottom_y
 
     def rotate_to_top(self):
-        # Find the side which should be the top
-        # max_x2_minus_yxAll = float("inf")
-        # top_side_index = 0
-
-        # for i, side in enumerate(self.sides):
-        #     x1, y1 = self.puzzle_sampled_contours[side.start_corner_index][0]
-        #     x2, y2 = self.puzzle_sampled_contours[side.end_corner_index][0]
-        #     x2_minus_yx = x2 - y2 - x1 - y1
-
-        #     if (x2_minus_yx) < max_x2_minus_yxAll:
-        #         top_side_index = i
-
         # Identify the side with the minimum average y-value which will be considered the top side.
         min_avg_y = float("inf")
         top_side_index = -1
@@ -116,14 +113,12 @@ class PieceInfo:
             if avg_y < min_avg_y:
                 min_avg_y = avg_y
                 top_side_index = i
-        print(f"Top side index: {top_side_index}")
 
         # Rotate the piece until the identified top side is in the 0th index
         counter = 0
         while top_side_index != 0:
             counter += 1
 
-            print(f"Rotating piece {counter} times")
             # Rotate Histograms, Points, start_corner_index, end_corner_index
             self.sides = self.sides[-1:] + self.sides[:-1]
 
@@ -250,30 +245,6 @@ class PuzzleSolve:
 
             add_piece = piece.puzzle_piece
             mask = add_piece == 255
-
-            # Debugging shapes and coordinates
-            subarray_shape = puzzle_image[
-                piece.top_y : piece.bottom_y, piece.left_x : piece.right_x
-            ].shape
-            mask_shape = mask.shape
-            print(f"Subarray shape: {subarray_shape}, Mask shape: {mask_shape}")
-
-            # Ensure the shapes match before assignment
-            if subarray_shape == mask_shape:
-                puzzle_image[
-                    piece.top_y : piece.bottom_y, piece.left_x : piece.right_x
-                ][mask] = add_piece[mask]
-            else:
-                print("Mismatch in shapes detected")
-
-            # Debug: Check dimensions
-            print(f"Mask shape: {mask.shape}, Puzzle piece shape: {add_piece.shape}")
-            print(
-                f"Top_y: {piece.top_y}, Bottom_y: {piece.bottom_y}, Left_x: {piece.left_x}, Right_x: {piece.right_x}"
-            )
-            print(
-                f"Subarray shape: {puzzle_image[piece.top_y : piece.bottom_y, piece.left_x : piece.right_x].shape}"
-            )
 
             puzzle_image[piece.top_y : piece.bottom_y, piece.left_x : piece.right_x][
                 mask

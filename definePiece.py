@@ -109,7 +109,6 @@ def segment_edges_and_calculate_histograms(
     angle_differences,
     finalCornerIndicies,
     cornerTrim,
-    flat_edge_tolerance,
 ):
     edgeHistograms = []
     edgePoints = []
@@ -314,7 +313,7 @@ def shoelace_area(vertices):
 # segments a piece into 4 sides.
 # returns sides as normalized histograms in CW order
 def segmentSides(
-    piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=4
+    piece, debugVis=False, downSampleFactor=4, cornerTrim=3, flat_edge_tolerance=10
 ):
     debugImgs = []
 
@@ -386,7 +385,6 @@ def segmentSides(
         angle_differences,
         finalCornerIndicies,
         cornerTrim,
-        flat_edge_tolerance,
     )
     if debugVis:
         debugImgs.append(
@@ -402,11 +400,10 @@ def segmentSides(
 
     # Define Sides
     for i in range(4):
-        thisPiece.sides[i].side_Index = i
         thisPiece.sides[i].Histogram = edgeHistograms[i]
         thisPiece.sides[i].Points = edgePoints[i]
-        thisPiece.sides[i].start_corner_index = finalCornerIndicies[i]
-        thisPiece.sides[i].end_corner_index = finalCornerIndicies[(i + 1) % 4]
+        # thisPiece.sides[i].start_corner_index = finalCornerIndicies[i]
+        # thisPiece.sides[i].end_corner_index = finalCornerIndicies[(i + 1) % 4]
         if (
             np.all(edgeHistograms[i] == 0)
             or np.sum(np.abs(edgeHistograms[i])) < flat_edge_tolerance
@@ -419,6 +416,7 @@ def segmentSides(
     thisPiece.puzzle_piece = piece
     thisPiece.puzzle_contours_all = contour
     thisPiece.puzzle_sampled_contours = sample_points
+    thisPiece.corners = finalCorners[-1:] + finalCorners[:-1]  # rotate corners CW by 1
 
     count_Flat = 0
     for i in range(4):
@@ -462,7 +460,7 @@ def main():
     pieces, _ = load_puzzle_pieces(os.path.join(shuffledPath, puzzle_name))
 
     for piece in pieces:
-        segmentSides(piece, True, 4, 3)
+        segmentSides(piece, True, 4, 3, 10)
 
 
 # Runs only if called as main file

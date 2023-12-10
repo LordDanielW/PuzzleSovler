@@ -2,6 +2,7 @@
 Puzzles/
 pyenv.cfg
 sessionFP/
+.VSCodeCounter/
 
 #
 #   Base .gitignore file for Python projects

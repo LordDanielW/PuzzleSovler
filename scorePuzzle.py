@@ -111,11 +111,13 @@ def main():
             f"Puzzles/Shuffled/{puzzle_name}/puzzle_meta_data.json"
         )
         metric_file_path = f"Puzzles/Shuffled/{puzzle_name}/puzzle_pieces_info.csv"
-        solution_file_path = f"Puzzles/Solved/{puzzle_name}_solved.csv"  # If this is constant for all puzzles
-        # If the solution file path also varies, you might need to change it as per your requirements
+
+        solution_file_path = f"Puzzles/Solved/{puzzle_name}_solved.csv"
         score_output_file_path = f"Puzzles/Solved/{puzzle_name}_grade.csv"
 
-        # Call the score_puzzle function with the paths
+        # solution_file_path = f"Puzzles/Solved/{puzzle_name}_classic_solved.csv"
+        # score_output_file_path = f"Puzzles/Solved/{puzzle_name}_classic_grade.csv"
+
         score_puzzle(
             puzzle_meta_data_file_path,
             metric_file_path,
